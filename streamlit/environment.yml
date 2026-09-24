@@ -4,5 +4,5 @@ channels:
 dependencies:
   - streamlit=1.52.2
   - plotly
-  - matplotlib
-  - streamlit-option-menu
+  - pandas
+  - snowflake-snowpark-python

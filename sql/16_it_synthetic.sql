@@ -23,26 +23,52 @@
    5. Every constant lives in GOLD.IT_ASSUMPTION with a stated basis, and is
       marked as measured from the source or simply chosen.
 
-   EVENT THRESHOLDS, MEASURED NOT GUESSED (scripts/probe_it_event_basis.py)
+   A BREAKDOWN AND AN IDLE LINE ARE NOT THE SAME EVENT
 
-   Plant B has 142,233 unplanned stops totalling 13,413 hours, but a median
-   stop lasts 0.98 minutes. Raising a ticket for a one-minute micro-stop would
-   be fiction, so a threshold is needed and the candidates were counted:
+   The first version of this file treated all of Plant B's unplanned stops as
+   maintenance work, and that was a modelling error rather than an arithmetic
+   one. Every check passed and the output was still wrong.
 
-     threshold   orders   per machine per day   share of stop time
-       5 min     17,310          4.74                 82.8%
-      10 min     10,176          2.78                 76.6%
-      30 min      4,061          1.11                 64.1%
-      60 min      2,383          0.65                 55.4%
+   scripts/probe_stop_state_alarm.py settles it. Within Plant B's unplanned
+   stops, the absence of an alarm code coincides exactly with the 'idle'
+   state — not approximately, exactly:
 
-   30 minutes is used. It yields roughly one order per machine per day, which
-   is a plausible corrective workload, while still accounting for 64% of all
-   unplanned stop time.
+     state        intervals   with no alarm
+     downtime        92,084             0
+     idle            50,149        50,149
 
-   An uncomfortable fact that is kept rather than hidden: 3,592 of those 4,061
-   stops carry alarm code A_000, the publisher's placeholder for no alarm. So
-   88% of the longest stops on Plant B have no recorded cause. That is a real
-   property of the source and becomes CAUSE_CODE = 'UNDIAGNOSED'.
+   So an alarm always accompanies a breakdown and never accompanies idle time.
+   Of the 4,061 stops over 30 minutes, 3,592 were idle and held 93.7% of the
+   long-stop hours. Calling those 'undiagnosed maintenance' was wrong twice
+   over: there is nothing undiagnosed about them, and no technician is
+   dispatched when a line is waiting for work.
+
+   They are now separated:
+
+     GOLD.WORK_ORDER                maintenance jobs, from breakdowns only
+     GOLD.PRODUCTION_LOSS_INCIDENT  idle periods, owned by planning
+
+   This matters for the conclusion a reader draws. Plant B's largest loss is
+   not unexplained failure; it is a line standing still with nothing wrong
+   with it. Those are different problems with different owners, and merging
+   them would have pointed the maintenance team at work that was never theirs.
+
+   EVENT THRESHOLDS, MEASURED NOT GUESSED
+
+   Breakdowns are much shorter than idle periods, so the threshold had to be
+   re-chosen against 'downtime' alone (median 0.89 minutes, p99 19.16):
+
+     threshold   orders   per machine per day   share of breakdown time
+       2 min     20,782          5.69                  72.9%
+       5 min      6,899          1.89                  50.1%
+      10 min      2,555          0.70                  34.3%
+      30 min        469          0.13                  17.2%
+
+   10 minutes is used: 2,555 orders, about 0.7 per machine per day, which is a
+   believable corrective workload for five machines.
+
+   Idle periods keep the 30-minute threshold, giving 3,592 incidents over
+   8,060 hours with a median length of 79 minutes.
 
    Plant A's 1,555 module-alarm windows merge into 1,042 incidents once
    consecutive windows within 30 minutes are treated as one event. Median
@@ -84,8 +110,10 @@ CREATE OR REPLACE TABLE GOLD.IT_ASSUMPTION (
 INSERT INTO GOLD.IT_ASSUMPTION
   (ASSUMPTION_SET_ID, PLANT_SCOPE, NAME, VALUE, UNIT, IS_MEASURED, BASIS)
 VALUES
-  ('AS-2026-09-24', 'PLANT_B', 'WORK_ORDER_MIN_STOP_MINUTES', 30, 'minutes', TRUE,
-   'Chosen from a measured sweep: yields 4,061 orders, 1.11 per machine per day, covering 64.1% of unplanned stop time.'),
+  ('AS-2026-09-24', 'PLANT_B', 'WORK_ORDER_MIN_BREAKDOWN_MINUTES', 10, 'minutes', TRUE,
+   'Chosen from a measured sweep over breakdowns only: yields 2,555 orders, 0.70 per machine per day, covering 34.3% of breakdown time.'),
+  ('AS-2026-09-24', 'PLANT_B', 'IDLE_INCIDENT_MIN_MINUTES', 30, 'minutes', TRUE,
+   'Idle periods of at least 30 minutes become production-loss incidents: 3,592 of them over 8,060 hours, median 79 minutes.'),
   ('AS-2026-09-24', 'PLANT_A', 'INCIDENT_MERGE_GAP_MINUTES', 30, 'minutes', TRUE,
    'Merges 1,555 module-alarm windows into 1,042 incidents. Below this gap, consecutive windows are the same event still running.'),
   ('AS-2026-09-24', 'BOTH', 'LABOUR_RATE_PER_HOUR', 45, 'EUR/hour', FALSE,
@@ -184,23 +212,28 @@ WITH cfg AS (
   WHERE ASSUMPTION_SET_ID = 'AS-2026-09-24'
 ),
 
-/* ---- Plant B: one order per unplanned stop of 30 minutes or more ---- */
+/* ---- Plant B: one order per breakdown of 10 minutes or more.
+
+       Restricted to STOP_STATE = 'downtime'. Idle periods are handled in
+       GOLD.PRODUCTION_LOSS_INCIDENT below, because nobody is dispatched to
+       repair a line that is merely waiting. Every downtime interval carries
+       an alarm code, verified, so CAUSE_CODE is never a placeholder here. --- */
 b_events AS (
   SELECT
     'PLANT_B'                                   AS PLANT_CODE,
     e.MACHINE_KEY,
     e.MACHINE_CODE,
-    'UNPLANNED_STOP'                            AS SOURCE_EVENT_TYPE,
+    'BREAKDOWN'                                 AS SOURCE_EVENT_TYPE,
     e.STOP_START                                AS EVENT_START,
     e.STOP_END                                  AS EVENT_END,
     e.STOP_DURATION_MIN                         AS EVENT_DURATION_MIN,
-    /* A_000 is the publisher's placeholder for "no alarm was active". */
-    IFF(e.ALARM_CODE = 'A_000', 'UNDIAGNOSED', e.ALARM_CODE) AS CAUSE_CODE,
-    e.STOP_STATE                                AS EVENT_DETAIL,
+    e.ALARM_CODE                                AS CAUSE_CODE,
+    'Machine reported alarm ' || e.ALARM_CODE    AS EVENT_DETAIL,
     r.IDEAL_RATE_PPH
   FROM GOLD.PIADE_DOWNTIME_EVENT e
   JOIN GOLD.OEE_IDEAL_RATE r USING (MACHINE_KEY)
-  WHERE e.STOP_DURATION_MIN >= 30
+  WHERE e.STOP_STATE = 'downtime'
+    AND e.STOP_DURATION_MIN >= 10
 ),
 
 /* ---- Plant A: one order per merged module-alarm incident ---- */
@@ -226,23 +259,90 @@ a_grouped AS (
       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS INCIDENT_NO
   FROM a_marked
 ),
-a_events AS (
+/* Silver sums the sixteen module-alarm columns into one count, which would
+   leave every Plant A order carrying the same placeholder cause. The individual
+   columns survive in Bronze, so the cause is recovered from there rather than
+   invented. Measured before doing this: all sixteen codes fire, the largest
+   holds only 29.9% of activations, nine are needed to reach 90%, and different
+   machines lead with different codes. Attribution is therefore informative
+   rather than a single bar. */
+a_codes AS (
   SELECT
-    'PLANT_A'                                        AS PLANT_CODE,
+    'PLANT_A:' || SERIAL     AS MACHINE_KEY,
+    TIME_UTC,
+    f.KEY                    AS ALARM_CODE,
+    f.VALUE::INT             AS FIRES
+  FROM BRONZE.COMOPI_ALARMS_RAW,
+  LATERAL FLATTEN(input => OBJECT_CONSTRUCT(
+    'AL_17', AL_17, 'AL_18', AL_18, 'AL_40', AL_40, 'AL_41', AL_41,
+    'AL_42', AL_42, 'AL_43', AL_43, 'AL_45', AL_45, 'AL_46', AL_46,
+    'AL_47', AL_47, 'AL_48', AL_48, 'AL_49', AL_49, 'AL_50', AL_50,
+    'AL_51', AL_51, 'AL_52', AL_52, 'AL_53', AL_53, 'AL_54', AL_54)) f
+  WHERE f.VALUE::INT > 0
+),
+/* One incident spans several windows and a window can carry more than one
+   code, so the incident's cause is the code with the most activations across
+   it. Measured: 96.0% of alarm windows have exactly one code active, so this
+   is a real attribution rather than a coin toss. Ties break on code name so
+   the result is reproducible. CAUSE_CODE_COUNT keeps the ambiguity visible
+   instead of hiding it. */
+a_incident_code AS (
+  SELECT
+    g.MACHINE_KEY,
+    g.INCIDENT_NO,
+    c.ALARM_CODE                              AS CAUSE_CODE,
+    SUM(c.FIRES)                              AS CAUSE_FIRES,
+    /* One row per code after the grouping below, so a plain count over the
+       incident partition is the number of distinct codes. Snowflake has no
+       COUNT(DISTINCT ...) window function, so this is the way to get it. */
+    COUNT(*) OVER (
+      PARTITION BY g.MACHINE_KEY, g.INCIDENT_NO) AS CAUSE_CODE_COUNT
+  FROM a_grouped g
+  JOIN a_codes c
+    ON c.MACHINE_KEY = g.MACHINE_KEY
+   AND c.TIME_UTC    = g.TIME_UTC
+  GROUP BY g.MACHINE_KEY, g.INCIDENT_NO, c.ALARM_CODE
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY g.MACHINE_KEY, g.INCIDENT_NO
+    ORDER BY SUM(c.FIRES) DESC, c.ALARM_CODE) = 1
+),
+a_rolled AS (
+  SELECT
     MACHINE_KEY,
+    INCIDENT_NO,
     ANY_VALUE(MACHINE_CODE)                          AS MACHINE_CODE,
-    'MODULE_ALARM_INCIDENT'                          AS SOURCE_EVENT_TYPE,
     MIN(TIME_UTC)                                    AS EVENT_START,
     /* Each window covers ten minutes, so the incident ends ten minutes after
        the last window begins. */
     DATEADD('minute', 10, MAX(TIME_UTC))             AS EVENT_END,
     DATEDIFF('minute', MIN(TIME_UTC), MAX(TIME_UTC)) + 10 AS EVENT_DURATION_MIN,
-    'MODULE_ALARM'                                   AS CAUSE_CODE,
-    SUM(MODULE_ALARM_COUNT)::VARCHAR || ' alarm activations across '
-      || COUNT(*)::VARCHAR || ' ten-minute windows'  AS EVENT_DETAIL,
-    CAST(NULL AS FLOAT)                              AS IDEAL_RATE_PPH
+    SUM(MODULE_ALARM_COUNT)                          AS TOTAL_ACTIVATIONS,
+    COUNT(*)                                         AS WINDOW_COUNT
   FROM a_grouped
   GROUP BY MACHINE_KEY, INCIDENT_NO
+),
+a_events AS (
+  SELECT
+    'PLANT_A'                                        AS PLANT_CODE,
+    r.MACHINE_KEY,
+    r.MACHINE_CODE,
+    'MODULE_ALARM_INCIDENT'                          AS SOURCE_EVENT_TYPE,
+    r.EVENT_START,
+    r.EVENT_END,
+    r.EVENT_DURATION_MIN,
+    COALESCE(ic.CAUSE_CODE, 'MODULE_ALARM')          AS CAUSE_CODE,
+    r.TOTAL_ACTIVATIONS::VARCHAR || ' alarm activations across '
+      || r.WINDOW_COUNT::VARCHAR || ' ten-minute windows, '
+      || COALESCE(ic.CAUSE_FIRES, 0)::VARCHAR || ' of them '
+      || COALESCE(ic.CAUSE_CODE, 'unattributed')
+      || IFF(COALESCE(ic.CAUSE_CODE_COUNT, 1) > 1,
+             ' (' || ic.CAUSE_CODE_COUNT::VARCHAR || ' codes active)',
+             '')                                     AS EVENT_DETAIL,
+    CAST(NULL AS FLOAT)                              AS IDEAL_RATE_PPH
+  FROM a_rolled r
+  LEFT JOIN a_incident_code ic
+    ON ic.MACHINE_KEY = r.MACHINE_KEY
+   AND ic.INCIDENT_NO = r.INCIDENT_NO
 ),
 
 events AS (
@@ -368,25 +468,120 @@ JOIN GOLD.DIM_TECHNICIAN t
   AND t.TECHNICIAN_ID = c.PLANT_CODE || '-T' || LPAD((c.TECH_SLOT + 1)::VARCHAR, 2, '0');
 
 COMMENT ON TABLE GOLD.WORK_ORDER IS
-  'INVENTED maintenance records. Each row is anchored to one real observed event on its own plant; no event is invented and nothing crosses between plants. Costs rest on GOLD.IT_ASSUMPTION.';
+  'INVENTED maintenance records for breakdowns only. Each row is anchored to one real observed event on its own plant; no event is invented and nothing crosses between plants. Idle time is in GOLD.PRODUCTION_LOSS_INCIDENT instead.';
+
+/* --------------------------------------------------------------------------
+   Production-loss incidents: Plant B idle periods of 30 minutes or more.
+
+   Deliberately NOT work orders. No technician, no labour cost and no parts,
+   because nothing was repaired. The only cost is the output that was not
+   made, and the owner is planning rather than maintenance.
+
+   This table exists because these 3,592 incidents hold 93.7% of Plant B's
+   long-stop hours. Filing them as maintenance tickets would have sent the
+   maintenance team after the largest number on the dashboard, and it was
+   never their number.
+   -------------------------------------------------------------------------- */
+
+CREATE OR REPLACE TABLE GOLD.PRODUCTION_LOSS_INCIDENT AS
+WITH cfg AS (
+  SELECT MAX(IFF(NAME = 'CONTRIBUTION_MARGIN_PER_PACKAGE'
+                 AND PLANT_SCOPE = 'PLANT_B', VALUE, NULL)) AS MARGIN_B
+  FROM GOLD.IT_ASSUMPTION
+  WHERE ASSUMPTION_SET_ID = 'AS-2026-09-24'
+),
+idle AS (
+  SELECT
+    e.MACHINE_KEY,
+    e.MACHINE_CODE,
+    e.STOP_START,
+    e.STOP_END,
+    e.STOP_DURATION_MIN,
+    r.IDEAL_RATE_PPH
+  FROM GOLD.PIADE_DOWNTIME_EVENT e
+  JOIN GOLD.OEE_IDEAL_RATE r USING (MACHINE_KEY)
+  WHERE e.STOP_STATE = 'idle'
+    AND e.STOP_DURATION_MIN >= 30
+)
+SELECT
+  'PLI-B-' || LPAD(ROW_NUMBER() OVER (
+    ORDER BY i.MACHINE_CODE, i.STOP_START)::VARCHAR, 6, '0')  AS INCIDENT_ID,
+  'PLANT_B'                                                   AS PLANT_CODE,
+  i.MACHINE_KEY,
+  i.MACHINE_CODE,
+  'IDLE_NO_ALARM'                                             AS LOSS_CATEGORY,
+  i.STOP_START                                                AS LOSS_START,
+  i.STOP_END                                                  AS LOSS_END,
+  i.STOP_DURATION_MIN                                         AS LOSS_MINUTES,
+  ROUND(i.STOP_DURATION_MIN / 60.0 * i.IDEAL_RATE_PPH, 0)     AS FORGONE_PACKAGES,
+  ROUND(i.STOP_DURATION_MIN / 60.0 * i.IDEAL_RATE_PPH * c.MARGIN_B, 2)
+                                                              AS FORGONE_MARGIN,
+  'PLANNING'                                                  AS OWNING_FUNCTION,
+  'The machine was available and not faulted. The source records no alarm for any idle interval, so this is waiting time, not a breakdown.'
+                                                              AS INTERPRETATION,
+  /* The duration and the rate are observed; only the margin is chosen. */
+  'SYNTHETIC_IT'                                              AS DATA_ORIGIN,
+  'AS-2026-09-24'                                             AS ASSUMPTION_SET_ID,
+  'gen-v2'                                                    AS GENERATOR_VERSION
+FROM idle i
+CROSS JOIN cfg c;
+
+COMMENT ON TABLE GOLD.PRODUCTION_LOSS_INCIDENT IS
+  'Plant B idle periods of 30 minutes or more. Costed as forgone output only, with no labour or parts, because nothing was repaired. Owned by planning, not maintenance.';
 
 /* ==========================================================================
    Verification. The first two are the ones that matter: if either fails, the
    generator has invented something.
    ========================================================================== */
 
-/* 1. Counts against the events they came from. Plant B must equal the number
-      of unplanned stops of 30 minutes or more, measured offline as 4,061.
-      Plant A must equal the merged incident count, measured as 1,042. */
+/* 1. Counts against the events they came from. Measured offline:
+      Plant B breakdowns of 10 minutes or more   2,555
+      Plant A merged alarm incidents             1,042
+      Plant B idle periods of 30 minutes or more 3,592 */
 SELECT
-  'PLANT_B expected (stops >= 30 min)' AS CHECK_NAME,
-  (SELECT COUNT(*) FROM GOLD.PIADE_DOWNTIME_EVENT WHERE STOP_DURATION_MIN >= 30) AS EXPECTED,
+  'PLANT_B work orders (breakdowns >= 10 min)' AS CHECK_NAME,
+  (SELECT COUNT(*) FROM GOLD.PIADE_DOWNTIME_EVENT
+   WHERE STOP_STATE = 'downtime' AND STOP_DURATION_MIN >= 10)                    AS EXPECTED,
   (SELECT COUNT(*) FROM GOLD.WORK_ORDER WHERE PLANT_CODE = 'PLANT_B')            AS ACTUAL
 UNION ALL
 SELECT
-  'PLANT_A expected (merged incidents)',
+  'PLANT_A work orders (merged incidents)',
   1042,
-  (SELECT COUNT(*) FROM GOLD.WORK_ORDER WHERE PLANT_CODE = 'PLANT_A');
+  (SELECT COUNT(*) FROM GOLD.WORK_ORDER WHERE PLANT_CODE = 'PLANT_A')
+UNION ALL
+SELECT
+  'PLANT_B idle incidents (>= 30 min)',
+  (SELECT COUNT(*) FROM GOLD.PIADE_DOWNTIME_EVENT
+   WHERE STOP_STATE = 'idle' AND STOP_DURATION_MIN >= 30),
+  (SELECT COUNT(*) FROM GOLD.PRODUCTION_LOSS_INCIDENT);
+
+/* 1b. No breakdown work order may carry a placeholder cause. Every downtime
+       interval was verified to have an alarm code, so a non-zero count here
+       means the state filter leaked idle rows into the maintenance table. */
+SELECT
+  COUNT(*)                                            AS PLANT_B_ORDERS,
+  SUM(IFF(CAUSE_CODE = 'A_000', 1, 0))                AS PLACEHOLDER_CAUSES,
+  SUM(IFF(CAUSE_CODE = 'UNDIAGNOSED', 1, 0))          AS UNDIAGNOSED_CAUSES,
+  COUNT(DISTINCT CAUSE_CODE)                          AS DISTINCT_CAUSES
+FROM GOLD.WORK_ORDER
+WHERE PLANT_CODE = 'PLANT_B';
+
+/* 1c. Plant A's cause is recovered from the individual Bronze alarm columns,
+       so it must no longer be the flat 'MODULE_ALARM' constant. Expect around
+       sixteen distinct codes and zero unattributed rows. AL_45 and AL_46 were
+       measured as the two leaders at 29.9% and 26.6% of activations, so a
+       result where one code holds nearly everything means the dominant-code
+       pick collapsed and should be investigated rather than accepted. */
+SELECT
+  CAUSE_CODE,
+  COUNT(*)                                            AS ORDERS,
+  ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2)  AS PCT_OF_ORDERS,
+  COUNT(DISTINCT MACHINE_CODE)                        AS MACHINES,
+  SUM(IFF(EVENT_DETAIL LIKE '%codes active)', 1, 0))  AS AMBIGUOUS_ORDERS
+FROM GOLD.WORK_ORDER
+WHERE PLANT_CODE = 'PLANT_A'
+GROUP BY CAUSE_CODE
+ORDER BY ORDERS DESC;
 
 /* 2. No orphans and no crossing. Every order must sit inside its own plant's
       observed time range and reference a machine that plant actually has. */
@@ -417,8 +612,7 @@ SELECT
 FROM GOLD.WORK_ORDER
 GROUP BY PLANT_CODE;
 
-/* 4. The uncomfortable one, kept in the open. How much of Plant B's
-      corrective cost sits behind stops with no recorded cause? */
+/* 4. Plant B's breakdown causes, now that they are all real alarm codes. */
 SELECT
   CAUSE_CODE,
   COUNT(*)                                        AS ORDERS,
@@ -431,6 +625,28 @@ WHERE PLANT_CODE = 'PLANT_B'
 GROUP BY CAUSE_CODE
 ORDER BY TOTAL_COST DESC
 LIMIT 12;
+
+/* 4b. The comparison that changes the conclusion. Maintenance cost against
+       idle cost on the same plant. Breakdowns are the maintenance team's
+       problem; idle time is not, and idle is expected to be much larger. */
+SELECT
+  'BREAKDOWN (maintenance)'                       AS LOSS_TYPE,
+  COUNT(*)                                        AS EVENTS,
+  ROUND(SUM(SOURCE_EVENT_MINUTES) / 60.0, 1)      AS HOURS,
+  ROUND(SUM(LABOUR_COST + PARTS_COST), 2)         AS REPAIR_COST,
+  ROUND(SUM(LOST_PRODUCTION_COST), 2)             AS FORGONE_MARGIN,
+  ROUND(SUM(TOTAL_COST), 2)                       AS TOTAL_COST
+FROM GOLD.WORK_ORDER
+WHERE PLANT_CODE = 'PLANT_B'
+UNION ALL
+SELECT
+  'IDLE (planning)',
+  COUNT(*),
+  ROUND(SUM(LOSS_MINUTES) / 60.0, 1),
+  0,
+  ROUND(SUM(FORGONE_MARGIN), 2),
+  ROUND(SUM(FORGONE_MARGIN), 2)
+FROM GOLD.PRODUCTION_LOSS_INCIDENT;
 
 /* 5. Determinism. Re-deriving the draws from the stored ids must reproduce
       the stored values exactly. A non-zero MISMATCHES means something
