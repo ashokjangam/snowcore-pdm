@@ -29,6 +29,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Downloaded source datasets — fetch from Zenodo, never commit
+data/raw/
+data/stage/
+
 # Working notes not intended for publication
 session-transcripts/
 DAY-*-DIARY.md

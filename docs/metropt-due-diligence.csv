@@ -1,0 +1,41 @@
+category,metric,verified_value,source,implication
+identity,local_file,C:\Users\C306242\Downloads\dataset_train.csv,Local file inspection,Official MetroPT 2022 benchmark file
+identity,md5,83C713C0F8A6C2F24418CCA999B2A8EB,Local hash and Zenodo 10.5281/zenodo.6854240,Exact match to canonical Zenodo file
+identity,file_size_bytes,1646201046,Local file inspection,About 1.65 GB
+identity,licence,CC BY 4.0,Zenodo 10.5281/zenodo.6854240,Reuse is permitted with attribution
+shape,rows,10773588,Full local scan,Paper reports a different count; use measured local count
+shape,columns,21,Full local scan,Timestamp plus 20 measurements
+shape,time_start,2022-01-01 06:00:00,Full local scan,First local observation
+shape,time_end,2022-06-02 15:49:53,Full local scan,Last local observation
+quality,null_cells,0,Full local scan,Zero values in GPS fields represent signal loss and are not nulls
+quality,duplicate_timestamps,0,Full local scan,Timestamps are unique
+quality,nonmonotonic_timestamps,0,Full local scan,Timestamps are ordered
+quality,one_second_transitions,10773435,Full local scan,Data is predominantly sampled at 1 Hz
+quality,scheduled_4_hour_gaps,147,Full local scan,Do not treat the series as continuously observed
+quality,pressure_switch_active_rows,0,Full local scan,Pressure_switch is constant and unusable as a model feature
+quality,oil_level_active_rows,3,Full local scan,Oil_level is nearly constant and statistically fragile
+quality,gps_quality_zero_rows,5304018,Full local scan,GPS zero means unavailable or tunnel rather than missing
+failure,clients_air_leak,2022-02-28 21:53 to 2022-03-01 02:00,Published Scientific Data Table 2,Component naming conflicts with the earlier arXiv table; prefer the published article
+failure,clients_air_leak_local_rows,14821,Full local scan with inclusive endpoints,Published table lists 14820 because endpoint counting differs
+failure,air_dryer_air_leak,2022-03-23 14:54 to 2022-03-23 15:24,Published Scientific Data Table 2,Short 30-minute event
+failure,air_dryer_air_leak_local_rows,1801,Full local scan with inclusive endpoints,Published table lists 1800 because endpoint counting differs
+failure,compressor_oil_leak,2022-05-30 12:00 to 2022-06-02 06:18,Published Scientific Data Table 2,Long event with operational gaps
+failure,compressor_oil_leak_local_rows,195484,Full local scan,Use local observed rows rather than the publication example count
+signal,clients_event_lps_activation_rate,0.766345,Full local scan using the 2022-02-28 event,Strong failure-state signal but not a two-hour early warning
+signal,clients_pre2h_lps_activation_rate,0,Full local scan,The obvious alarm does not provide advance warning
+signal,clients_event_oil_temperature_mean_c,84.809955,Full local scan,Large failure-state shift from normal mean 67.351571 C
+signal,air_dryer_pre2h_oil_temperature_mean_c,60.933108,Full local scan,Pre-event shift exists but may reflect operating state
+signal,air_dryer_event_lps_activation_rate,0,Full local scan,This event is not captured by the LPS alarm
+signal,oil_pre2h_oil_temperature_mean_c,63.549712,Full local scan,Mean is lower than normal; trend and cycle features matter more than a simple high threshold
+signal,oil_event_oil_level_activation_rate,0,Full local scan,Oil_level sensor does not expose the documented oil leak
+signal,oil_event_gps_quality_mean,0.002670,Full local scan,Location availability is confounded with this event and can leak event identity
+comparison,metropt_provenance,Real operating train APU with peer-reviewed maintenance reports,Zenodo and Scientific Data,Strong external-validity story
+comparison,metropt_independent_assets,1,Scientific Data,Cannot validate fleet generalisation
+comparison,metropt_independent_failures,3,Scientific Data,Too few events for a defensible supervised AutoML benchmark
+comparison,azure_pdm_provenance,Simulated machine fleet,Microsoft sample documentation,Easier modeling but weaker real-world evidence
+comparison,azure_pdm_schema,Telemetry plus machines errors maintenance and component failures,Microsoft sample documentation,Closer to the existing SnowCore star schema
+comparison,azure_pdm_licence,Not clearly specified for the original dataset,Canonical-source review,Do not import until dataset reuse terms are resolved
+decision,selected_source,MetroPT 2022,Due-diligence decision,Use as the real OT validation track
+decision,first_model_type,Anomaly and event detection rather than supervised failure classification,Three-event limitation,Avoid treating adjacent seconds as independent failures
+decision,evaluation_unit,Failure event and warning lead time,Scientific Data protocol,Report event recall false alarms and whether warning exceeds two hours
+decision,augmentation_rule,Keep synthetic tables explicitly flagged and separate from real measurements,Data-governance requirement,Never present synthetic fleet diversity costs work orders or OEE as observed MetroPT facts
