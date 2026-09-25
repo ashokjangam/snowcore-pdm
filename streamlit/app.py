@@ -876,7 +876,16 @@ def work_materials() -> None:
         with st.form("planned_wo"):
             c1, c2, c3 = st.columns(3)
             line = c1.selectbox("Line", LINES)
-            priority = c2.selectbox("Priority", ["P2", "P3", "P4"])
+            priority = c2.selectbox(
+                "Priority",
+                ["P1", "P2", "P3", "P4"],
+                index=1,
+                help=(
+                    "P1: immediate safety or production threat · "
+                    "P2: urgent, plan next intervention · "
+                    "P3: routine planned work · P4: monitor/backlog."
+                ),
+            )
             description = c3.text_input("Planned task", max_chars=120)
             submitted = st.form_submit_button("Create session scenario")
         if submitted:
@@ -892,7 +901,7 @@ def work_materials() -> None:
                     "PRIORITY": priority,
                     "STATUS": "PLANNED",
                     "DESCRIPTION": description.strip(),
-                    "CREATED_AT": datetime.now(timezone.utc),
+                    "REPORTED_AT": datetime.now(timezone.utc),
                     "DATA_ORIGIN": "SESSION_SCENARIO",
                 }
                 # Session scenarios are a UI aid, not a durable work ledger.
@@ -913,11 +922,40 @@ def work_materials() -> None:
     )
     simulated = _scenario_work_orders()
     section("Work-order list")
-    status = st.multiselect("Status", sorted(work["STATUS"].dropna().astype(str).unique()) if "STATUS" in work else [], default=None)
+    combined_work = pd.concat([simulated, work.head(250)], ignore_index=True, sort=False)
+    status_order = ["PLANNED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "CANCELLED"]
+    status_values = (
+        combined_work["STATUS"].dropna().astype(str).str.upper().unique().tolist()
+        if "STATUS" in combined_work
+        else []
+    )
+    status_options = [s for s in status_order if s in status_values]
+    status_options.extend(sorted(s for s in status_values if s not in status_order))
+    status = st.multiselect(
+        "Status filter",
+        status_options,
+        default=[],
+        format_func=label_value,
+        placeholder="All statuses",
+        help="Session-created work is Planned. Published scenario history is Completed.",
+    )
     if status:
-        work = work[work["STATUS"].astype(str).isin(status)]
+        selected_statuses = {
+            str(value).strip().upper().replace(" ", "_") for value in status
+        }
+        combined_work = combined_work[
+            combined_work["STATUS"].astype(str).str.upper().isin(selected_statuses)
+        ]
+    planned_count = int(
+        (combined_work.get("STATUS", pd.Series(dtype=str)).astype(str).str.upper() == "PLANNED").sum()
+    )
+    st.caption(
+        f"{planned_count} session-planned · "
+        f"{int((combined_work.get('STATUS', pd.Series(dtype=str)).astype(str).str.upper() == 'COMPLETED').sum())} "
+        "completed historical scenario rows shown. Blank costs on planned rows mean not yet estimated."
+    )
     dataframe(
-        pd.concat([simulated, work.head(250)], ignore_index=True, sort=False),
+        combined_work,
         [
             "WORK_ORDER_ID",
             "MACHINE_CODE",
@@ -942,6 +980,15 @@ def work_materials() -> None:
             "TOTAL_COST": ("Total (€)", "eur2"),
         },
     )
+    with st.expander("How to read the work-order table"):
+        st.caption(
+            "Planned rows are temporary browser-session scenarios and disappear when the "
+            "session ends. Completed rows are deterministic synthetic maintenance records "
+            "anchored to observed PIADE fault events. Blank technician, completion, and cost "
+            "fields on a planned row mean those decisions have not been simulated—not that "
+            "the values are zero. Cortex is reserved for questions that require synthesis; "
+            "fixed status and column definitions are shown here without an AI call."
+        )
 
     left, right = st.columns([1.1, 1], gap="medium")
     with left:
@@ -1202,7 +1249,12 @@ with st.sidebar:
     st.caption("Five-line packaging operation")
     st.toggle("Dark theme", key="dark_theme")
     st.markdown("---")
-    choice = st.radio("Navigation", list(PAGES), label_visibility="collapsed")
+    choice = st.radio(
+        "Navigation",
+        list(PAGES),
+        key="nav_page",
+        label_visibility="collapsed",
+    )
     st.markdown("---")
     st.caption("s_1 · s_2 · s_3 · s_4 · s_5")
     st.caption("Observed operations + labelled synthetic workflow")
