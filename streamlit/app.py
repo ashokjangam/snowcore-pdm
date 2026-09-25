@@ -24,6 +24,9 @@ AMBER = "#d99a2b"
 RED = "#d14b52"
 TEAL = "#2a9d9f"
 BLUE = "#4f7cac"
+SLATE = "#6b7a8a"
+# Muted ramp for per-line series; risk colours stay reserved for exceptions.
+LINE_RAMP = ["#4f7cac", "#6f93bc", "#8fa9c9", "#5f7a8c", "#7d8e9c"]
 
 st.set_page_config(
     page_title="PIADE | Operations Console",
@@ -250,12 +253,200 @@ def chart(fig: go.Figure) -> None:
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-def dataframe(df: pd.DataFrame, columns: list[str] | None = None, **kwargs) -> None:
-    if df.empty:
+# ---------------------------------------------------------------------------
+# Display contract
+#
+# Warehouse columns are SCREAMING_SNAKE and unscaled. Leadership tables need
+# short labels, the unit in the header, and a human magnitude in the cell.
+# Values stay numeric so column sorting remains correct.
+# ---------------------------------------------------------------------------
+
+# kind -> (multiplier applied for display, printf format)
+KIND_SPEC: dict[str, tuple[float, str]] = {
+    "pct": (100.0, "%.1f%%"),
+    "pct100": (1.0, "%.1f%%"),
+    "pts": (1.0, "%+.1f"),
+    "score": (1.0, "%.3f"),
+    "hours": (1.0, "%.0f"),
+    "hours1": (1.0, "%.1f"),
+    "minutes": (1.0, "%.0f"),
+    "thousands": (1e-3, "%.0f"),
+    "eur": (1.0, "%.0f"),
+    "eur2": (1.0, "%.2f"),
+    "eur_k": (1e-3, "%.1f"),
+    "eur_m": (1e-6, "%.2f"),
+    "int": (1.0, "%.0f"),
+}
+
+COLUMN_META: dict[str, tuple[str, str]] = {
+    "MACHINE_CODE": ("Line", "text"),
+    "SCOPE": ("Scope", "text"),
+    "GRAIN": ("Grain", "text"),
+    "OEE": ("OEE", "pct"),
+    "AVAILABILITY": ("Availability", "pct"),
+    "PERFORMANCE": ("Performance", "pct"),
+    "QUALITY": ("Quality", "pct"),
+    "LAST_RISK_SCORE": ("Risk score", "score"),
+    "RISK_PERCENTILE": ("Risk pctile", "pct"),
+    "RISK_BAND": ("Risk band", "text"),
+    "RISK_STATE": ("State", "text"),
+    "MODEL_VS_BASELINE_TRUST": ("Model trust", "text"),
+    "LAST_SCORED_HOUR": ("Last scored", "text"),
+    "AUC": ("AUC", "score"),
+    "AVG_PRECISION": ("Avg precision", "score"),
+    "BASE_RATE": ("Base rate", "pct"),
+    "TEST_ROWS": ("Test hours", "int"),
+    "TOP_DECILE_PRECISION": ("Model precision", "pct"),
+    "BASELINE_TOP_DECILE_PRECISION": ("Persistence precision", "pct"),
+    "MODEL_ADVANTAGE_PTS": ("Advantage (pts)", "pts"),
+    "BREAKDOWN_HOURS": ("Fault (h)", "hours"),
+    "IDLE_HOURS": ("Waiting (h)", "hours"),
+    "SLOW_RUNNING_HOURS": ("Slow (h)", "hours"),
+    "RUN_HOURS": ("Run (h)", "hours"),
+    "PLANNED_HOURS": ("Planned (h)", "hours"),
+    "STOP_HOURS": ("Stop (h)", "hours"),
+    "OBSERVED_LOSS_MINUTES": ("Loss (min)", "minutes"),
+    "ACTUAL_OUTPUT_UNITS": ("Output (k)", "thousands"),
+    "PACKAGES_OUT": ("Packages out (k)", "thousands"),
+    "MARGIN_EXPOSURE_EUR": ("Exposure (€M)", "eur_m"),
+    "PRODUCTION_EXPOSURE_EUR": ("Exposure (€M)", "eur_m"),
+    "WORK_ORDER_COUNT": ("Work orders", "int"),
+    "WORK_ORDERS": ("Work orders", "int"),
+    "STOCK_RISK_COUNT": ("Stock-risk kits", "int"),
+    "ACTION_RANK": ("#", "int"),
+    "OWNER_FUNCTION": ("Owner", "text"),
+    "PRIORITY": ("Priority", "text"),
+    "RECOMMENDED_ACTION": ("Recommended action", "wide"),
+    "EVIDENCE": ("Evidence", "wide"),
+    "LABOUR_COST": ("Labour (€k)", "eur_k"),
+    "PARTS_COST": ("Parts (€k)", "eur_k"),
+    "MAINTENANCE_COST": ("Maintenance (€k)", "eur_k"),
+    "BREAKDOWN_FORGONE_MARGIN": ("Fault margin (€k)", "eur_k"),
+    "IDLE_FORGONE_MARGIN": ("Waiting margin (€k)", "eur_k"),
+    "TOTAL_SCENARIO_EXPOSURE": ("Total (€k)", "eur_k"),
+    "AVG_COST_PER_ORDER": ("Avg / order (€)", "eur"),
+    "PCT_COST_FROM_IDLING": ("From waiting", "pct100"),
+    "IDLE_INCIDENTS": ("Waiting events", "int"),
+    "CUMULATIVE_PCT": ("Cumulative", "pct100"),
+    "CAUSE_CODE": ("Cause", "text"),
+    "ALARM_CODE": ("Alarm", "text"),
+    "STOP_STATE": ("Stop state", "text"),
+    "STOCK_STATE": ("Stock state", "text"),
+    "ON_HAND_QTY": ("On hand", "int"),
+    "REORDER_POINT": ("Reorder point", "int"),
+    "STOCK_RISK": ("At risk", "text"),
+    "WORK_ORDER_ID": ("Work order", "text"),
+    "PRODUCTION_ORDER_ID": ("Production order", "text"),
+    "MATERIAL_ID": ("Material", "text"),
+    "SOURCE_EVENT_ID": ("Event", "text"),
+    "TECH_NAME": ("Technician", "text"),
+    "SPECIALITY": ("Speciality", "text"),
+    "STATUS": ("Status", "text"),
+    "ORDER_STATUS": ("Order status", "text"),
+    "WORK_ORDER_STATUS": ("WO status", "text"),
+    "REPORTED_AT": ("Reported", "text"),
+    "COMPLETED_AT": ("Completed", "text"),
+    "STOP_START": ("Stop start", "text"),
+    "DESCRIPTION": ("Description", "wide"),
+    "DATA_ORIGIN": ("Origin", "text"),
+    "EVENT_DATA_ORIGIN": ("Event origin", "text"),
+    "PRODUCTION_ORDER_ORIGIN": ("PO origin", "text"),
+    "WORK_ORDER_ORIGIN": ("WO origin", "text"),
+    "PART_ORIGIN": ("Part origin", "text"),
+    "INVENTORY_ORIGIN": ("Inventory origin", "text"),
+}
+
+# Warehouse enums rendered as prose. Only these columns are relabelled, so
+# identifiers and free text are never rewritten.
+VALUE_LABELS = {
+    "MODEL_OUTPERFORMS_PERSISTENCE": "Beats persistence",
+    "MODEL_DOES_NOT_OUTPERFORM_PERSISTENCE": "No edge vs persistence",
+    "IDLE_DOMINANT": "Waiting dominant",
+    "BREAKDOWN_DOMINANT": "Fault dominant",
+    "SUPPLY_CHAIN": "Supply chain",
+    "DERIVED_FROM_OBSERVED": "Derived",
+    "DERIVED_FROM_OBSERVED + SYNTHETIC_ERP": "Derived + synthetic",
+    "SYNTHETIC_IT": "Synthetic IT",
+    "SESSION_SCENARIO": "Session scenario",
+}
+RELABEL_COLUMNS = {
+    "MODEL_VS_BASELINE_TRUST",
+    "RISK_STATE",
+    "RISK_BAND",
+    "OWNER_FUNCTION",
+    "STOCK_STATE",
+    "STATUS",
+    "ORDER_STATUS",
+    "WORK_ORDER_STATUS",
+    "LOSS_NATURE",
+    "GRAIN",
+    "STOP_STATE",
+    "DATA_ORIGIN",
+    "EVENT_DATA_ORIGIN",
+    "PRODUCTION_ORDER_ORIGIN",
+    "WORK_ORDER_ORIGIN",
+    "PART_ORIGIN",
+    "INVENTORY_ORIGIN",
+}
+
+
+def label_value(value: object) -> object:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return value
+    text = str(value)
+    if text in VALUE_LABELS:
+        return VALUE_LABELS[text]
+    if text.isupper():
+        return text.replace("_", " ").capitalize()
+    return text
+
+
+def dataframe(
+    df: pd.DataFrame,
+    columns: list[str] | None = None,
+    overrides: dict[str, tuple[str, str]] | None = None,
+    **kwargs,
+) -> None:
+    if df is None or df.empty:
         st.info("No rows are available for this view.")
         return
-    shown = df[[c for c in (columns or list(df.columns)) if c in df.columns]]
-    st.dataframe(shown, hide_index=True, use_container_width=True, **kwargs)
+    wanted = [c for c in (columns or list(df.columns)) if c in df.columns]
+    shown = df[wanted].copy()
+    meta = dict(COLUMN_META)
+    meta.update({k.upper(): v for k, v in (overrides or {}).items()})
+
+    config: dict[str, object] = {}
+    for column in wanted:
+        key = str(column).upper()
+        label, kind = meta.get(key, (key.replace("_", " ").capitalize(), "text"))
+        if kind in KIND_SPEC:
+            # Snowflake NUMBER can arrive as Decimal objects, so coerce first.
+            numeric = pd.to_numeric(shown[column], errors="coerce")
+            if numeric.notna().any():
+                scale, fmt = KIND_SPEC[kind]
+                shown[column] = numeric * scale if scale != 1.0 else numeric
+                config[column] = st.column_config.NumberColumn(label, format=fmt)
+                continue
+        if key in RELABEL_COLUMNS:
+            shown[column] = shown[column].map(label_value)
+        config[column] = (
+            st.column_config.TextColumn(label, width="large")
+            if kind == "wide"
+            else st.column_config.Column(label)
+        )
+
+    try:
+        st.dataframe(
+            shown,
+            hide_index=True,
+            use_container_width=True,
+            column_config=config,
+            **kwargs,
+        )
+    except Exception:
+        # Older Streamlit runtimes reject column_config; the data still matters.
+        LOGGER.warning("column_config unsupported; rendering plain table")
+        st.dataframe(shown, hide_index=True, use_container_width=True, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +498,41 @@ def command_center() -> None:
     )
     d.metric("Open leadership actions", number(open_actions), help="Unresolved actions requiring an accountable owner.")
 
+    section("Where the planned hours go")
+    rollup = load(
+        "OEE loss bridge",
+        f"SELECT * FROM {DB}.GOLD.V_OEE_ROLLUP WHERE MACHINE_CODE IS NULL LIMIT 1",
+    )
+    if not rollup.empty:
+        row = rollup.iloc[0]
+        run = float(row.get("RUN_HOURS") or 0)
+        slow = float(row.get("SLOW_RUNNING_HOURS") or 0)
+        parts = [
+            ("Productive", max(run - slow, 0.0), TEAL),
+            ("Slow running", slow, SLATE),
+            ("Waiting", float(row.get("IDLE_HOURS") or 0), AMBER),
+            ("Fault", float(row.get("BREAKDOWN_HOURS") or 0), RED),
+        ]
+        total = sum(hours for _, hours, _ in parts) or 1.0
+        fig = go.Figure()
+        for name, hours, colour in parts:
+            fig.add_bar(
+                x=[hours],
+                y=["Planned hours"],
+                orientation="h",
+                name=f"{name} · {hours / total:.0%}",
+                marker_color=colour,
+                text=f"{hours:,.0f} h",
+                textposition="inside",
+                insidetextanchor="middle",
+                textfont=dict(size=11, color="#0a0e14"),
+                hovertemplate=f"{esc(name)}<br>%{{x:,.0f}} h<extra></extra>",
+            )
+        fig.update_layout(barmode="stack")
+        fig.update_yaxes(showticklabels=False)
+        fig.update_xaxes(showticklabels=False)
+        chart(style_fig(fig, height=132, legend=True))
+
     section("Fleet ranked by actionable risk")
     risk_col = col(
         fleet,
@@ -322,62 +548,33 @@ def command_center() -> None:
         fleet,
         [
             "MACHINE_CODE",
-            "OEE",
-            "LAST_RISK_SCORE",
             "RISK_BAND",
+            "LAST_RISK_SCORE",
             "MODEL_VS_BASELINE_TRUST",
+            "OEE",
             "IDLE_HOURS",
             "BREAKDOWN_HOURS",
             "MARGIN_EXPOSURE_EUR",
         ],
     )
 
-    left, right = st.columns([1.2, 1], gap="medium")
-    with left:
-        section("Site loss bridge")
-        rollup = load(
-            "OEE loss bridge",
-            f"SELECT * FROM {DB}.GOLD.V_OEE_ROLLUP WHERE MACHINE_CODE IS NULL LIMIT 1",
-        )
-        if not rollup.empty:
-            row = rollup.iloc[0]
-            parts = {
-                "Productive": max(float(row.get("RUN_HOURS", 0)) - float(row.get("SLOW_RUNNING_HOURS", 0)), 0),
-                "Slow running": float(row.get("SLOW_RUNNING_HOURS", 0)),
-                "Waiting": float(row.get("IDLE_HOURS", 0)),
-                "Fault": float(row.get("BREAKDOWN_HOURS", 0)),
-            }
-            fig = go.Figure()
-            for (name, hours), colour in zip(parts.items(), [TEAL, BLUE, AMBER, RED]):
-                fig.add_bar(
-                    x=[hours],
-                    y=["Site hours"],
-                    orientation="h",
-                    name=name,
-                    marker_color=colour,
-                    text=f"{hours:,.0f}h",
-                    hovertemplate=f"{esc(name)}<br>%{{x:,.1f}} h<extra></extra>",
-                )
-            fig.update_layout(barmode="stack")
-            fig.update_yaxes(showticklabels=False)
-            chart(style_fig(fig, height=160, legend=False))
-    with right:
-        section("Leadership action queue")
-        priority = col(actions, "PRIORITY_RANK", "ACTION_RANK", "RISK_SCORE", "PRIORITY")
-        if priority:
-            descending = str(priority).upper() in {"RISK_SCORE", "ACTIONABLE_RISK", "PRIORITY_SCORE"}
-            actions = actions.sort_values(priority, ascending=not descending).head(8)
-        dataframe(
-            actions,
-            [
-                "ACTION_RANK",
-                "OWNER_FUNCTION",
-                "MACHINE_CODE",
-                "PRIORITY",
-                "RISK_STATE",
-                "RECOMMENDED_ACTION",
-            ],
-        )
+    section("Leadership action queue")
+    priority = col(actions, "PRIORITY_RANK", "ACTION_RANK", "RISK_SCORE", "PRIORITY")
+    if priority:
+        descending = str(priority).upper() in {"RISK_SCORE", "ACTIONABLE_RISK", "PRIORITY_SCORE"}
+        actions = actions.sort_values(priority, ascending=not descending).head(8)
+    dataframe(
+        actions,
+        [
+            "ACTION_RANK",
+            "PRIORITY",
+            "OWNER_FUNCTION",
+            "MACHINE_CODE",
+            "RISK_STATE",
+            "PRODUCTION_EXPOSURE_EUR",
+            "RECOMMENDED_ACTION",
+        ],
+    )
     origin_note(True, True, "Operations and OEE are observed/derived. Costs and workflow records are synthetic scenarios.")
 
 
@@ -482,7 +679,11 @@ def fleet_risk() -> None:
                 }
             )
             fig = px.bar(result, x="Hours", y="Result", orientation="h")
-            fig.update_traces(marker_color=[TEAL, RED, AMBER, BLUE])
+            # Good outcomes stay neutral; only misses and false alarms carry risk colour.
+            fig.update_traces(
+                marker_color=[TEAL, AMBER, RED, SLATE],
+                hovertemplate="%{y}: %{x:,.0f} h<extra></extra>",
+            )
             chart(style_fig(fig, height=180, legend=False))
 
         section("Feature drivers")
@@ -517,32 +718,129 @@ def oee_drilldown() -> None:
     with left:
         section("Loss stack")
         if not line_rows.empty:
-            loss_cols = [c for c in ["BREAKDOWN_HOURS", "IDLE_HOURS", "SLOW_RUNNING_HOURS"] if c in line_rows.columns]
-            melted = line_rows.melt(id_vars=["MACHINE_CODE"], value_vars=loss_cols, var_name="Loss", value_name="Hours")
-            fig = px.bar(melted, x="MACHINE_CODE", y="Hours", color="Loss", barmode="stack")
-            fig.update_traces(marker_color=None)
+            loss_names = {
+                "BREAKDOWN_HOURS": "Fault",
+                "IDLE_HOURS": "Waiting",
+                "SLOW_RUNNING_HOURS": "Slow running",
+            }
+            loss_cols = [c for c in loss_names if c in line_rows.columns]
+            melted = line_rows.melt(
+                id_vars=["MACHINE_CODE"], value_vars=loss_cols, var_name="Loss", value_name="Hours"
+            )
+            melted["Loss"] = melted["Loss"].map(loss_names)
+            fig = px.bar(
+                melted,
+                x="MACHINE_CODE",
+                y="Hours",
+                color="Loss",
+                barmode="stack",
+                category_orders={"Loss": ["Fault", "Waiting", "Slow running"]},
+                color_discrete_map={"Fault": RED, "Waiting": AMBER, "Slow running": SLATE},
+            )
+            fig.update_traces(hovertemplate="%{x}<br>%{fullData.name}: %{y:,.0f} h<extra></extra>")
             chart(style_fig(fig, height=260))
     with right:
         section("Machine comparison")
         if not line_rows.empty:
+            order = line_rows.sort_values("OEE", ascending=False)["MACHINE_CODE"].astype(str).tolist()
             comp = line_rows.melt(
                 id_vars=["MACHINE_CODE"],
                 value_vars=[c for c in ["AVAILABILITY", "PERFORMANCE", "QUALITY", "OEE"] if c in line_rows],
                 var_name="Metric",
                 value_name="Value",
             )
-            fig = px.bar(comp, x="MACHINE_CODE", y="Value", color="Metric", barmode="group")
+            comp["Metric"] = comp["Metric"].str.capitalize()
+            fig = px.bar(
+                comp,
+                x="MACHINE_CODE",
+                y="Value",
+                color="Metric",
+                barmode="group",
+                category_orders={
+                    "MACHINE_CODE": order,
+                    "Metric": ["Availability", "Performance", "Quality", "Oee"],
+                },
+                # OEE is the outcome, so it is the only series that carries accent.
+                color_discrete_map={
+                    "Availability": "#4f7cac",
+                    "Performance": "#6f93bc",
+                    "Quality": "#8fa9c9",
+                    "Oee": AMBER,
+                },
+            )
+            fig.for_each_trace(lambda t: t.update(name="OEE") if t.name == "Oee" else None)
             fig.update_yaxes(tickformat=".0%", range=[0, 1])
+            fig.update_traces(hovertemplate="%{x}<br>%{fullData.name}: %{y:.1%}<extra></extra>")
             chart(style_fig(fig, height=260))
 
-    section("Daily weighted trend")
+    section("Weighted OEE trend · weekly")
     daily = safe_lines(table("GOLD", "V_OEE_DAILY"))
-    if not daily.empty:
-        date = col(daily, "OEE_DATE", "DATE")
-        fig = px.line(daily, x=date, y="OEE", color="MACHINE_CODE")
+    date = col(daily, "OEE_DATE", "DATE") if not daily.empty else None
+    if date:
+        trend = daily.copy()
+        # Snowflake DATE arrives as datetime.date objects. Passing those
+        # straight to Plotly produces a categorical axis with one category per
+        # day, which fails to draw; convert to real datetimes first.
+        stamps = pd.to_datetime(trend[date], errors="coerce")
+        trend = trend.assign(
+            _WEEK=stamps - pd.to_timedelta(stamps.dt.dayofweek, unit="D")
+        ).dropna(subset=["_WEEK"])
+        components = ["PLANNED_HOURS", "RUN_HOURS", "PACKAGES_IN", "PACKAGES_OUT", "THEORETICAL_PACKAGES"]
+        weighted = all(c in trend.columns for c in components)
+        for component in components:
+            if component in trend:
+                trend[component] = pd.to_numeric(trend[component], errors="coerce")
+
+        def weekly(frame: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+            if weighted:
+                agg = frame.groupby(keys, as_index=False)[components].sum(min_count=1)
+                floors = agg[["PLANNED_HOURS", "THEORETICAL_PACKAGES", "PACKAGES_IN"]].replace(0, float("nan"))
+                # Cumulative counters are sampled at interval boundaries, so an
+                # output can land in a later bucket than its input. GOLD caps
+                # each term at 1.0 for exactly this reason; match that rule.
+                agg["VALUE"] = (
+                    (agg["RUN_HOURS"] / floors["PLANNED_HOURS"]).clip(upper=1.0)
+                    * (agg["PACKAGES_OUT"] / floors["THEORETICAL_PACKAGES"]).clip(upper=1.0)
+                    * (agg["PACKAGES_OUT"] / floors["PACKAGES_IN"]).clip(upper=1.0)
+                )
+                return agg.dropna(subset=["VALUE"])
+            # Fall back to an unweighted mean if the component columns move.
+            agg = frame.groupby(keys, as_index=False)["OEE"].mean().rename(columns={"OEE": "VALUE"})
+            return agg.dropna(subset=["VALUE"])
+
+        fig = go.Figure()
+        for index, machine in enumerate(sorted(trend["MACHINE_CODE"].dropna().astype(str).unique())):
+            per_line = weekly(trend[trend["MACHINE_CODE"].astype(str) == machine], ["_WEEK"])
+            if per_line.empty:
+                continue
+            fig.add_scatter(
+                x=per_line["_WEEK"],
+                y=per_line["VALUE"],
+                name=machine,
+                mode="lines",
+                line=dict(color=LINE_RAMP[index % len(LINE_RAMP)], width=1),
+                opacity=.7,
+                hovertemplate=f"{esc(machine)}<br>%{{x|%d %b %Y}}: %{{y:.1%}}<extra></extra>",
+            )
+        site = weekly(trend, ["_WEEK"])
+        if not site.empty:
+            fig.add_scatter(
+                x=site["_WEEK"],
+                y=site["VALUE"],
+                name="Site weighted",
+                mode="lines",
+                line=dict(color=AMBER, width=2.4),
+                hovertemplate="Site<br>%{x|%d %b %Y}: %{y:.1%}<extra></extra>",
+            )
         fig.update_yaxes(tickformat=".0%", range=[0, 1])
-        fig.update_traces(line=dict(width=1.4))
-        chart(style_fig(fig, height=250))
+        chart(style_fig(fig, height=260))
+        st.caption(
+            "Weekly points recompute A × P × Q from summed hours and package "
+            "counts, so short weeks cannot distort the site line. Each term is "
+            "capped at 100%, matching the daily GOLD definition, because "
+            "cumulative counters can record an output in a later bucket than "
+            "its input."
+        )
 
     section("Fault Pareto")
     pareto = table("GOLD", "V_DOWNTIME_PARETO")
@@ -618,7 +916,32 @@ def work_materials() -> None:
     status = st.multiselect("Status", sorted(work["STATUS"].dropna().astype(str).unique()) if "STATUS" in work else [], default=None)
     if status:
         work = work[work["STATUS"].astype(str).isin(status)]
-    dataframe(pd.concat([simulated, work.head(250)], ignore_index=True, sort=False))
+    dataframe(
+        pd.concat([simulated, work.head(250)], ignore_index=True, sort=False),
+        [
+            "WORK_ORDER_ID",
+            "MACHINE_CODE",
+            "PRIORITY",
+            "STATUS",
+            "CAUSE_CODE",
+            "REPORTED_AT",
+            "COMPLETED_AT",
+            "TECH_NAME",
+            "SPECIALITY",
+            "LABOUR_COST",
+            "PARTS_COST",
+            "LOST_PRODUCTION_COST",
+            "TOTAL_COST",
+            "DESCRIPTION",
+        ],
+        # Order-grain money is small, so euros read better than thousands.
+        overrides={
+            "LABOUR_COST": ("Labour (€)", "eur2"),
+            "PARTS_COST": ("Parts (€)", "eur2"),
+            "LOST_PRODUCTION_COST": ("Lost output (€)", "eur2"),
+            "TOTAL_COST": ("Total (€)", "eur2"),
+        },
+    )
 
     left, right = st.columns([1.1, 1], gap="medium")
     with left:
@@ -636,7 +959,24 @@ def work_materials() -> None:
         if on_hand and reorder:
             inventory["STOCK_RISK"] = pd.to_numeric(inventory[on_hand], errors="coerce") <= pd.to_numeric(inventory[reorder], errors="coerce")
             inventory = inventory.sort_values(["STOCK_RISK", on_hand], ascending=[False, True])
-        dataframe(inventory)
+        dataframe(
+            inventory,
+            [
+                "MATERIAL_ID",
+                "STOCK_STATE",
+                "ON_HAND_QTY",
+                "REORDER_POINT",
+                "LEAD_TIME_DAYS",
+                "ANCHORED_WORK_ORDERS",
+                "SNAPSHOT_DATE",
+            ],
+            overrides={
+                "LEAD_TIME_DAYS": ("Lead time (d)", "int"),
+                "ANCHORED_WORK_ORDERS": ("Anchored WOs", "int"),
+                "SNAPSHOT_DATE": ("Snapshot", "text"),
+            },
+        )
+        st.caption("Inventory is a site-level material position and is not attributed to a single line.")
     with right:
         section("Selected digital thread")
         thread_line = st.selectbox("Line", LINES, key="thread_line")
@@ -709,7 +1049,23 @@ def financial_risk() -> None:
     fig.update_yaxes(tickprefix="€")
     chart(style_fig(fig, height=280))
     costs = costs.assign(TOTAL_SCENARIO_EXPOSURE=idle + maint).sort_values("TOTAL_SCENARIO_EXPOSURE", ascending=False)
-    dataframe(costs)
+    dataframe(
+        costs,
+        [
+            "MACHINE_CODE",
+            "TOTAL_SCENARIO_EXPOSURE",
+            "IDLE_FORGONE_MARGIN",
+            "MAINTENANCE_COST",
+            "BREAKDOWN_FORGONE_MARGIN",
+            "LABOUR_COST",
+            "PARTS_COST",
+            "PCT_COST_FROM_IDLING",
+            "WORK_ORDERS",
+            "IDLE_HOURS",
+            "BREAKDOWN_HOURS",
+            "AVG_COST_PER_ORDER",
+        ],
+    )
     with st.expander("Assumptions and limitations"):
         st.caption(
             "All currency values are synthetic scenarios. Labour rates, parts draws, and contribution "
@@ -759,7 +1115,25 @@ def analyst() -> None:
                     mask |= context[candidate].astype(str).str.upper().str.contains("|".join(terms), regex=True)
             evidence = context[mask] if mask.any() else context.head(10)
             st.markdown(f"**{choice}**")
-            dataframe(evidence)
+            dataframe(
+                evidence,
+                [
+                    "GRAIN",
+                    "MACHINE_CODE",
+                    "RISK_BAND",
+                    "LAST_RISK_SCORE",
+                    "OEE",
+                    "AVAILABILITY",
+                    "PERFORMANCE",
+                    "QUALITY",
+                    "BREAKDOWN_HOURS",
+                    "IDLE_HOURS",
+                    "ACTUAL_OUTPUT_UNITS",
+                    "MARGIN_EXPOSURE_EUR",
+                    "WORK_ORDER_COUNT",
+                    "STOCK_RISK_COUNT",
+                ],
+            )
             origin_note(True, True, "Rows shown directly from bounded GOLD.V_ANALYST_CONTEXT.")
 
     with st.expander("Ask a custom question"):

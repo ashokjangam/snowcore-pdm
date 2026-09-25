@@ -1,0 +1,69 @@
+# Cortex prompt 030 — UI polish deployment
+
+Upload the current `streamlit/app.py` over the existing app stage file and
+confirm the app object still resolves. Change no tables, views, or metrics.
+
+```sql
+USE ROLE ACCOUNTADMIN;
+USE DATABASE SNOWCORE_REAL;
+USE WAREHOUSE COMPUTE_WH;
+ALTER SESSION SET TIMEZONE='UTC';
+
+PUT 'file://C:/Users/C306242/Phoenix/sainathch45/snowcore-pdm/streamlit/app.py'
+  @SNOWCORE_REAL.APPS.STREAMLIT_STAGE/snowcore_pdm/
+  OVERWRITE=TRUE AUTO_COMPRESS=FALSE;
+
+ALTER STAGE SNOWCORE_REAL.APPS.STREAMLIT_STAGE REFRESH;
+
+LIST @SNOWCORE_REAL.APPS.STREAMLIT_STAGE/snowcore_pdm/;
+```
+
+Then confirm the columns the rewritten pages read actually exist, because the
+UI now selects an explicit column list per table:
+
+```sql
+SELECT MACHINE_CODE, RISK_BAND, LAST_RISK_SCORE, MODEL_VS_BASELINE_TRUST,
+       OEE, IDLE_HOURS, BREAKDOWN_HOURS, MARGIN_EXPOSURE_EUR
+FROM GOLD.V_EXECUTIVE_FLEET;
+
+SELECT ACTION_RANK, PRIORITY, OWNER_FUNCTION, MACHINE_CODE, RISK_STATE,
+       PRODUCTION_EXPOSURE_EUR, RECOMMENDED_ACTION
+FROM GOLD.V_EXECUTIVE_ACTION_QUEUE ORDER BY ACTION_RANK LIMIT 8;
+
+SELECT MACHINE_CODE, TOTAL_SCENARIO_EXPOSURE FROM (
+  SELECT MACHINE_CODE,
+         IDLE_FORGONE_MARGIN + MAINTENANCE_COST AS TOTAL_SCENARIO_EXPOSURE
+  FROM GOLD.V_PIADE_COST_BY_MACHINE) ORDER BY 2 DESC;
+
+SELECT MATERIAL_ID, STOCK_STATE, ON_HAND_QTY, REORDER_POINT, LEAD_TIME_DAYS,
+       SNAPSHOT_DATE
+FROM GOLD.INVENTORY_SNAPSHOT ORDER BY ON_HAND_QTY LIMIT 5;
+
+SELECT MATERIAL_ID, ANCHORED_WORK_ORDERS FROM GOLD.DIM_MATERIAL LIMIT 3;
+```
+
+The weekly OEE trend now recomputes A x P x Q from summed components rather
+than averaging daily OEE. Verify those component columns exist and that a
+weekly weighted recomputation stays inside 0 and 1:
+
+```sql
+SELECT DATE_TRUNC('week', OEE_DATE) AS WEEK_START,
+       SUM(RUN_HOURS)/NULLIF(SUM(PLANNED_HOURS),0)
+       * SUM(PACKAGES_OUT)/NULLIF(SUM(THEORETICAL_PACKAGES),0)
+       * SUM(PACKAGES_OUT)/NULLIF(SUM(PACKAGES_IN),0) AS WEIGHTED_OEE
+FROM GOLD.V_OEE_DAILY
+GROUP BY 1 ORDER BY 1 DESC LIMIT 5;
+
+SELECT COUNT(*) AS WEEKS,
+       COUNT_IF(W < 0 OR W > 1) AS OUT_OF_RANGE_WEEKS,
+       ROUND(MIN(W),4) AS MIN_W, ROUND(MAX(W),4) AS MAX_W
+FROM (
+  SELECT SUM(RUN_HOURS)/NULLIF(SUM(PLANNED_HOURS),0)
+         * SUM(PACKAGES_OUT)/NULLIF(SUM(THEORETICAL_PACKAGES),0)
+         * SUM(PACKAGES_OUT)/NULLIF(SUM(PACKAGES_IN),0) AS W
+  FROM GOLD.V_OEE_DAILY GROUP BY DATE_TRUNC('week', OEE_DATE));
+```
+
+Report: staged bytes and timestamp, whether every selected column resolved,
+the number of weekly points, and the min/max weighted OEE. Flag any column
+that failed to resolve.

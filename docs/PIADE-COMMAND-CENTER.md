@@ -84,6 +84,22 @@ production volumes equally.
 The ideal rate is each line's best demonstrated observed speed, not a vendor
 nameplate rate. Quality is throughput yield, not a laboratory quality measure.
 
+### Counter-boundary cap
+
+PIADE publishes cumulative counters sampled at interval boundaries, so an
+output can be recorded in a later bucket than the input that produced it. Each
+OEE term is therefore capped at 1.0 wherever it is computed, and
+`GOLD.PIADE_OEE_DAILY.QUALITY_CLAMPED` records where the cap applied. Measured
+scope of the effect:
+
+- 107 of 2,367 machine-days are quality-clamped;
+- 2 of 105 weeks hit the cap on at least one term;
+- the application's weekly trend applies the same cap, so it ranges 29.26% to
+  73.10% with no week above 100%.
+
+The cap is a stated convention, not a correction: it bounds a sampling
+artefact rather than removing real production.
+
 ## Predictive model contract
 
 **Question:** will the next machine-hour lose more than 10% of its time to
@@ -136,8 +152,8 @@ The primary screens are:
    owned action queue.
 2. **Fleet Risk** — next-hour risk, measured model trust, recent operating
    history and feature drivers.
-3. **OEE Drill-Down** — weighted A/P/Q, daily trend, line comparison and fault
-   Pareto.
+3. **OEE Drill-Down** — weighted A/P/Q, weekly weighted trend, line comparison
+   and fault Pareto.
 4. **Work & Materials** — work orders, parts position and a visible
    event-to-ERP lineage.
 5. **Financial Risk** — scenario exposure split between planning and
@@ -148,6 +164,12 @@ The primary screens are:
 The visual system is an operations console: high information density,
 restricted colour, risk colour used only for exceptions, no marketing hero,
 and no unsupported sensor or RUL visualisations.
+
+Tables are rendered through a single display contract rather than dumped as
+raw warehouse output. Column names become short labels, the unit is carried in
+the header, ratios render as percentages, euros render in the magnitude that
+suits the grain, and warehouse enums read as prose. Values stay numeric, so
+column sorting remains correct.
 
 ## What the submission demonstrates
 
