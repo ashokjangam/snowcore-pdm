@@ -1,666 +1,267 @@
 /* ============================================================================
-   Presentation views, a semantic view for Cortex Analyst, and Cortex-written
-   narrative.
+   PIADE-only presentation, semantic model and bounded Cortex narrative.
 
-   THE ONE RULE THIS LAYER ENFORCES
-
-   Nothing above this point lets a caller mix the two plants, and nothing here
-   introduces that ability. Plant A and Plant B are separate factories with no
-   published relationship. Every view below carries PLANT_CODE and every
-   measure is defined so that it is only ever aggregated within a plant.
-
-   PROVENANCE TRAVELS WITH THE NUMBER
-
-   Each presentation view exposes DATA_ORIGIN so the application can badge a
-   figure without having to remember where it came from:
-
-     OBSERVED               published by the dataset author
-     DERIVED_FROM_OBSERVED  computed by us from published values only
-     SYNTHETIC_IT           invented by us; work orders, technicians, costs
-
-   WHICH CORTEX MODELS ARE USED AND WHY
-
-   docs/cortex-audit/009-capability-check-result.md measured what this account
-   can actually call. Working: llama3.3-70b, llama3.1-70b, llama3.1-8b,
-   mistral-7b. Not working: every Claude model and the Mistral-large family,
-   all reported as legacy or deprecated in this region. llama3.3-70b is used
-   for narrative and llama3.1-8b for short classification work, because paying
-   70b prices to bucket a stop reason is waste.
-
-   Narrative generation is deliberately bounded. It runs over aggregates —
-   tens of rows — not over the 5,103 work orders or the 45,625 OEE hours. An
-   LLM call per fact row would cost real credits to produce text nobody reads.
-   ========================================================================= */
-
+   Run after sql/18_piade_erp.sql because the semantic model intentionally
+   includes its production-order, work-order and material contracts.
+   No other dataset is referenced. Model quality is always read from persisted
+   final-blind-test metrics; no metric is hard-coded in prose.
+   ========================================================================== */
 USE ROLE ACCOUNTADMIN;
 USE DATABASE SNOWCORE_REAL;
 USE WAREHOUSE COMPUTE_WH;
-ALTER SESSION SET TIMEZONE = 'UTC';
-ALTER SESSION SET QUERY_TAG = 'snowcore-real|coco|semantic';
+ALTER SESSION SET TIMEZONE='UTC';
+ALTER SESSION SET QUERY_TAG='snowcore-real|piade|semantic';
 
-/* ==========================================================================
-   1. Presentation views.
-   ========================================================================== */
+/* Fail immediately with an object-not-found error if deployment sequencing is
+   wrong. Required order is 15 -> 18 -> 17. */
+SELECT COUNT(*) AS ERP_DEPENDENCY_CHECK
+FROM GOLD.PRODUCTION_ORDER
+WHERE 1=0;
 
-/* Fleet roster across both plants, with what each machine can and cannot
-   report. The app uses CAPABILITY_NOTE to decide which panels to grey out
-   rather than showing an empty chart. */
 CREATE OR REPLACE VIEW GOLD.V_FLEET AS
-SELECT
-  m.PLANT_CODE,
-  p.PLANT_LABEL,
-  p.PLANT_ROLE,
-  m.MACHINE_KEY,
-  m.MACHINE_CODE,
-  m.FIRST_SEEN,
-  m.LAST_SEEN,
-  m.SENSOR_WINDOWS                                      AS SOURCE_ROWS,
-  p.SOURCE_DOI,
-  p.SOURCE_LICENSE,
-  CASE m.PLANT_CODE
-    WHEN 'PLANT_B' THEN 'OEE, downtime and stop-risk available. No analogue sensors exist for this plant.'
-    ELSE 'Condition monitoring available. No production counts exist, so OEE and lost-output cost cannot be computed.'
-  END                                                   AS CAPABILITY_NOTE,
-  'OBSERVED'                                            AS DATA_ORIGIN
-FROM SILVER.DIM_MACHINE m
-JOIN SILVER.DIM_PLANT p USING (PLANT_CODE);
+SELECT PLANT_CODE,PLANT_LABEL,PLANT_ROLE,m.MACHINE_KEY,m.MACHINE_CODE,
+  m.FIRST_SEEN,m.LAST_SEEN,m.SENSOR_WINDOWS AS SOURCE_ROWS,
+  p.SOURCE_DOI,p.SOURCE_LICENSE,
+  'OEE and stop-risk are available. The site and equipment identities are anonymised; no analogue sensor channels are published.'
+    AS CAPABILITY_NOTE,
+  'OBSERVED' AS DATA_ORIGIN
+FROM SILVER.DIM_MACHINE m JOIN SILVER.DIM_PLANT p USING(PLANT_CODE)
+WHERE m.PLANT_CODE='PLANT_B';
 
-/* Plant B daily OEE, renamed for humans and with the loss breakdown that
-   makes A, P and Q actionable rather than merely reported. */
+CREATE OR REPLACE VIEW GOLD.V_PIADE_MACHINE AS
+SELECT MACHINE_KEY,MACHINE_CODE,FIRST_SEEN,LAST_SEEN,SENSOR_WINDOWS,DATA_ORIGIN
+FROM SILVER.DIM_MACHINE WHERE PLANT_CODE='PLANT_B';
+
+CREATE OR REPLACE VIEW GOLD.V_PIADE_WORK_ORDER AS
+SELECT * FROM GOLD.WORK_ORDER WHERE PLANT_CODE='PLANT_B';
+
 CREATE OR REPLACE VIEW GOLD.V_OEE_DAILY AS
-SELECT
-  PLANT_CODE,
-  MACHINE_KEY,
-  MACHINE_CODE,
-  OEE_DATE,
-  HOURS_OBSERVED,
-  ROUND(PLANNED_SEC / 3600.0, 2)                        AS PLANNED_HOURS,
-  ROUND(RUN_SEC / 3600.0, 2)                            AS RUN_HOURS,
-  ROUND(DOWNTIME_SEC / 3600.0, 2)                       AS UNPLANNED_DOWN_HOURS,
-  ROUND(IDLE_SEC / 3600.0, 2)                           AS IDLE_HOURS,
-  ROUND(SLOW_SEC / 3600.0, 2)                           AS SLOW_RUNNING_HOURS,
-  ROUND(PLANNED_STOP_SEC / 3600.0, 2)                   AS PLANNED_STOP_HOURS,
-  PACKAGES_IN,
-  PACKAGES_OUT,
-  THEORETICAL_PACKAGES,
-  ROUND(AVAILABILITY, 4)                                AS AVAILABILITY,
-  ROUND(PERFORMANCE, 4)                                 AS PERFORMANCE,
-  ROUND(QUALITY, 4)                                     AS QUALITY,
-  ROUND(OEE, 4)                                         AS OEE,
-  QUALITY_CLAMPED,
-  /* Which of the three terms is costing the most. Stated as the gap from a
-     perfect 1.0, because that is what an improvement effort would close. */
-  CASE
-    WHEN AVAILABILITY IS NULL THEN NULL
-    WHEN (1 - AVAILABILITY) >= (1 - PERFORMANCE)
-     AND (1 - AVAILABILITY) >= (1 - QUALITY)     THEN 'AVAILABILITY'
-    WHEN (1 - PERFORMANCE)  >= (1 - QUALITY)     THEN 'PERFORMANCE'
-    ELSE 'QUALITY'
-  END                                                   AS BIGGEST_LOSS,
-  ROUND(THEORETICAL_PACKAGES - PACKAGES_OUT, 0)         AS PACKAGES_FORGONE,
+SELECT PLANT_CODE,MACHINE_KEY,MACHINE_CODE,OEE_DATE,HOURS_OBSERVED,
+  ROUND(PLANNED_SEC/3600,2) PLANNED_HOURS,
+  ROUND(RUN_SEC/3600,2) RUN_HOURS,
+  ROUND(DOWNTIME_SEC/3600,2) BREAKDOWN_HOURS,
+  ROUND(IDLE_SEC/3600,2) IDLE_HOURS,
+  ROUND(SLOW_SEC/3600,2) SLOW_RUNNING_HOURS,
+  PACKAGES_IN,PACKAGES_OUT,THEORETICAL_PACKAGES,
+  AVAILABILITY,PERFORMANCE,QUALITY,OEE,QUALITY_CLAMPED,
+  ROUND(THEORETICAL_PACKAGES-PACKAGES_OUT,0) PACKAGES_FORGONE,
   DATA_ORIGIN
-FROM GOLD.PIADE_OEE_DAILY;
+FROM GOLD.PIADE_OEE_DAILY WHERE PLANT_CODE='PLANT_B';
 
-/* The single canonical OEE number per plant and per machine.
-
-   This view exists because there are three defensible ways to state a
-   plant-level OEE and they disagree badly on this data: the mean of hourly
-   ratios gives 57.1%, the mean of daily ratios gives 43.2%, and recomputing
-   from summed seconds and packages gives a third figure. Only the last is
-   correct, because averaging ratios weights a quiet hour the same as a busy
-   one. Every part of the application reads this view so that one number
-   appears everywhere. */
 CREATE OR REPLACE VIEW GOLD.V_OEE_ROLLUP AS
-SELECT
-  PLANT_CODE,
-  MACHINE_CODE,
-  MIN(OEE_DATE)                                                   AS FROM_DATE,
-  MAX(OEE_DATE)                                                   AS TO_DATE,
-  COUNT(*)                                                        AS DAYS_OBSERVED,
-  ROUND(SUM(PLANNED_SEC) / 3600.0, 1)                             AS PLANNED_HOURS,
-  ROUND(SUM(RUN_SEC) / 3600.0, 1)                                 AS RUN_HOURS,
-  ROUND(SUM(DOWNTIME_SEC) / 3600.0, 1)                            AS BREAKDOWN_HOURS,
-  ROUND(SUM(IDLE_SEC) / 3600.0, 1)                                AS IDLE_HOURS,
-  ROUND(SUM(SLOW_SEC) / 3600.0, 1)                                AS SLOW_RUNNING_HOURS,
-  SUM(PACKAGES_OUT)                                               AS PACKAGES_OUT,
-  /* Weighted, not averaged. */
-  ROUND(SUM(RUN_SEC) / NULLIF(SUM(PLANNED_SEC), 0), 4)            AS AVAILABILITY,
-  ROUND(SUM(PACKAGES_OUT) / NULLIF(SUM(THEORETICAL_PACKAGES), 0), 4) AS PERFORMANCE,
-  ROUND(SUM(PACKAGES_OUT) / NULLIF(SUM(PACKAGES_IN), 0), 4)       AS QUALITY,
-  ROUND(
-      (SUM(RUN_SEC) / NULLIF(SUM(PLANNED_SEC), 0))
-    * (SUM(PACKAGES_OUT) / NULLIF(SUM(THEORETICAL_PACKAGES), 0))
-    * (SUM(PACKAGES_OUT) / NULLIF(SUM(PACKAGES_IN), 0)), 4)       AS OEE,
-  'DERIVED_FROM_OBSERVED'                                         AS DATA_ORIGIN
-FROM GOLD.PIADE_OEE_DAILY
-GROUP BY ROLLUP (PLANT_CODE, MACHINE_CODE)
-HAVING PLANT_CODE IS NOT NULL;
+SELECT PLANT_CODE,MACHINE_CODE,MIN(OEE_DATE) FROM_DATE,MAX(OEE_DATE) TO_DATE,
+  COUNT(*) DAYS_OBSERVED,SUM(PLANNED_SEC)/3600 PLANNED_HOURS,
+  SUM(RUN_SEC)/3600 RUN_HOURS,SUM(DOWNTIME_SEC)/3600 BREAKDOWN_HOURS,
+  SUM(IDLE_SEC)/3600 IDLE_HOURS,SUM(SLOW_SEC)/3600 SLOW_RUNNING_HOURS,
+  SUM(PACKAGES_OUT) PACKAGES_OUT,
+  SUM(RUN_SEC)/NULLIF(SUM(PLANNED_SEC),0) AVAILABILITY,
+  SUM(PACKAGES_OUT)/NULLIF(SUM(THEORETICAL_PACKAGES),0) PERFORMANCE,
+  SUM(PACKAGES_OUT)/NULLIF(SUM(PACKAGES_IN),0) QUALITY,
+  (SUM(RUN_SEC)/NULLIF(SUM(PLANNED_SEC),0))
+   *(SUM(PACKAGES_OUT)/NULLIF(SUM(THEORETICAL_PACKAGES),0))
+   *(SUM(PACKAGES_OUT)/NULLIF(SUM(PACKAGES_IN),0)) OEE,
+  'DERIVED_FROM_OBSERVED' DATA_ORIGIN
+FROM GOLD.PIADE_OEE_DAILY WHERE PLANT_CODE='PLANT_B'
+GROUP BY ROLLUP(PLANT_CODE,MACHINE_CODE) HAVING PLANT_CODE IS NOT NULL;
 
-/* Downtime Pareto per plant, split by whether the machine was faulted or
-   merely waiting.
-
-   The first version of this view mapped alarm code A_000 to 'UNDIAGNOSED',
-   which produced a top line of 10,266 hours of apparently unexplained
-   breakdown and was wrong. scripts/probe_stop_state_alarm.py established that
-   the absence of an alarm coincides exactly with the 'idle' state: all 92,084
-   downtime intervals carry a code and all 50,149 idle intervals carry none.
-   Those hours were never undiagnosed failures. The line was available and
-   waiting, which is a planning problem rather than a maintenance one, and it
-   is labelled as such here. */
 CREATE OR REPLACE VIEW GOLD.V_DOWNTIME_PARETO AS
-WITH stops AS (
-  SELECT
-    PLANT_CODE,
-    MACHINE_CODE,
-    IFF(STOP_STATE = 'idle', 'IDLE_NO_ALARM', ALARM_CODE) AS CAUSE_CODE,
-    IFF(STOP_STATE = 'idle', 'WAITING', 'FAULTED')        AS LOSS_NATURE,
-    IFF(STOP_STATE = 'idle', 'PLANNING', 'MAINTENANCE')   AS OWNING_FUNCTION,
-    STOP_DURATION_MIN
-  FROM GOLD.PIADE_DOWNTIME_EVENT
-)
-SELECT
-  PLANT_CODE,
-  CAUSE_CODE,
-  LOSS_NATURE,
-  OWNING_FUNCTION,
-  COUNT(*)                                              AS STOP_COUNT,
-  ROUND(SUM(STOP_DURATION_MIN) / 60.0, 1)               AS STOP_HOURS,
-  ROUND(MEDIAN(STOP_DURATION_MIN), 1)                   AS MEDIAN_STOP_MIN,
-  ROUND(MAX(STOP_DURATION_MIN), 1)                      AS LONGEST_STOP_MIN,
-  COUNT(DISTINCT MACHINE_CODE)                          AS MACHINES_AFFECTED,
-  ROUND(100.0 * SUM(STOP_DURATION_MIN)
-        / SUM(SUM(STOP_DURATION_MIN)) OVER (PARTITION BY PLANT_CODE), 2)
-                                                        AS PCT_OF_STOP_TIME,
-  ROUND(100.0 * SUM(SUM(STOP_DURATION_MIN)) OVER (
-          PARTITION BY PLANT_CODE ORDER BY SUM(STOP_DURATION_MIN) DESC
-          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
-        / SUM(SUM(STOP_DURATION_MIN)) OVER (PARTITION BY PLANT_CODE), 2)
-                                                        AS CUMULATIVE_PCT,
-  /* A short-and-frequent cause needs a different response from a rare-and-long
-     one. This is a deterministic rule rather than an LLM call: the first
-     attempt asked llama3.1-8b to make this judgement and it returned the same
-     label for all 19 causes, which is worse than a threshold and costs money.
-     Language models are used in this build for writing prose, not for
-     bucketing two numbers. */
+WITH aggregate_causes AS (
+  SELECT PLANT_CODE,
+    IFF(STOP_STATE='idle','IDLE_NO_ALARM',ALARM_CODE) CAUSE_CODE,
+    IFF(STOP_STATE='idle','WAITING','FAULTED') LOSS_NATURE,
+    IFF(STOP_STATE='idle','PLANNING','MAINTENANCE') OWNING_FUNCTION,
+    COUNT(*) STOP_COUNT,SUM(STOP_DURATION_MIN)/60 STOP_HOURS,
+    MEDIAN(STOP_DURATION_MIN) MEDIAN_STOP_MIN,MAX(STOP_DURATION_MIN) LONGEST_STOP_MIN,
+    COUNT(DISTINCT MACHINE_CODE) MACHINES_AFFECTED,
+    SUM(STOP_DURATION_MIN) STOP_MINUTES,
   CASE
-    WHEN COUNT(*) >= 5000 AND MEDIAN(STOP_DURATION_MIN) < 5  THEN 'CHRONIC_SHORT'
-    WHEN COUNT(*) <  200  AND MEDIAN(STOP_DURATION_MIN) >= 30 THEN 'RARE_MAJOR'
-    WHEN MEDIAN(STOP_DURATION_MIN) >= 10                      THEN 'OCCASIONAL_LONG'
+    WHEN COUNT(*)>=5000 AND MEDIAN(STOP_DURATION_MIN)<5 THEN 'CHRONIC_SHORT'
+    WHEN COUNT(*)<200 AND MEDIAN(STOP_DURATION_MIN)>=30 THEN 'RARE_MAJOR'
+    WHEN MEDIAN(STOP_DURATION_MIN)>=10 THEN 'OCCASIONAL_LONG'
     ELSE 'INTERMITTENT'
-  END                                                   AS STOP_PATTERN,
-  'OBSERVED'                                            AS DATA_ORIGIN
-FROM stops
-GROUP BY PLANT_CODE, CAUSE_CODE, LOSS_NATURE, OWNING_FUNCTION;
-
-/* Money, per machine, with maintenance and idle kept apart.
-
-   Keeping them in separate columns rather than one total is the whole point.
-   A single TOTAL_COST would put the idle bill in the maintenance manager's
-   lap, and on Plant B the idle bill is the larger of the two by an order of
-   magnitude. */
-CREATE OR REPLACE VIEW GOLD.V_COST_BY_MACHINE AS
-WITH maint AS (
-  SELECT
-    PLANT_CODE,
-    MACHINE_CODE,
-    COUNT(*)                                            AS WORK_ORDERS,
-    ROUND(SUM(SOURCE_EVENT_MINUTES) / 60.0, 1)          AS BREAKDOWN_HOURS,
-    ROUND(SUM(LABOUR_COST), 2)                          AS LABOUR_COST,
-    ROUND(SUM(PARTS_COST), 2)                           AS PARTS_COST,
-    ROUND(SUM(LOST_PRODUCTION_COST), 2)                 AS BREAKDOWN_FORGONE_MARGIN,
-    ROUND(SUM(TOTAL_COST), 2)                           AS MAINTENANCE_COST,
-    ROUND(AVG(TOTAL_COST), 2)                           AS AVG_COST_PER_ORDER,
-    ANY_VALUE(COST_LIMITATION)                          AS COST_LIMITATION
-  FROM GOLD.WORK_ORDER
-  GROUP BY PLANT_CODE, MACHINE_CODE
-),
-idle AS (
-  SELECT
-    PLANT_CODE,
-    MACHINE_CODE,
-    COUNT(*)                                            AS IDLE_INCIDENTS,
-    ROUND(SUM(LOSS_MINUTES) / 60.0, 1)                  AS IDLE_HOURS,
-    ROUND(SUM(FORGONE_MARGIN), 2)                       AS IDLE_FORGONE_MARGIN
-  FROM GOLD.PRODUCTION_LOSS_INCIDENT
-  GROUP BY PLANT_CODE, MACHINE_CODE
+    END STOP_PATTERN
+  FROM GOLD.PIADE_DOWNTIME_EVENT
+  WHERE PLANT_CODE='PLANT_B'
+  GROUP BY PLANT_CODE,IFF(STOP_STATE='idle','IDLE_NO_ALARM',ALARM_CODE),
+    IFF(STOP_STATE='idle','WAITING','FAULTED'),
+    IFF(STOP_STATE='idle','PLANNING','MAINTENANCE')
 )
-SELECT
-  m.PLANT_CODE,
-  m.MACHINE_CODE,
-  m.WORK_ORDERS,
-  m.BREAKDOWN_HOURS,
-  m.LABOUR_COST,
-  m.PARTS_COST,
-  m.BREAKDOWN_FORGONE_MARGIN,
-  m.MAINTENANCE_COST,
-  m.AVG_COST_PER_ORDER,
-  COALESCE(i.IDLE_INCIDENTS, 0)                         AS IDLE_INCIDENTS,
-  COALESCE(i.IDLE_HOURS, 0)                             AS IDLE_HOURS,
-  i.IDLE_FORGONE_MARGIN,
-  /* How much of this machine's attributed money is waiting rather than
-     repairing. NULL for Plant A, which has no idle records and no output. */
-  ROUND(100.0 * DIV0(
-    COALESCE(i.IDLE_FORGONE_MARGIN, 0),
-    m.MAINTENANCE_COST + COALESCE(i.IDLE_FORGONE_MARGIN, 0)), 2)
-                                                        AS PCT_COST_FROM_IDLING,
-  m.COST_LIMITATION,
-  'SYNTHETIC_IT'                                        AS DATA_ORIGIN
-FROM maint m
-LEFT JOIN idle i
-  ON  i.PLANT_CODE   = m.PLANT_CODE
-  AND i.MACHINE_CODE = m.MACHINE_CODE;
+SELECT PLANT_CODE,CAUSE_CODE,LOSS_NATURE,OWNING_FUNCTION,STOP_COUNT,STOP_HOURS,
+  MEDIAN_STOP_MIN,LONGEST_STOP_MIN,MACHINES_AFFECTED,
+  100*STOP_MINUTES/SUM(STOP_MINUTES) OVER(PARTITION BY LOSS_NATURE) PCT_OF_STOP_TIME,
+  100*SUM(STOP_MINUTES) OVER(PARTITION BY LOSS_NATURE ORDER BY STOP_MINUTES DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    /SUM(STOP_MINUTES) OVER(PARTITION BY LOSS_NATURE) CUMULATIVE_PCT,
+  STOP_PATTERN,'OBSERVED' DATA_ORIGIN
+FROM aggregate_causes;
 
-/* Plant A condition monitoring, with the honesty note attached to the data
-   rather than left in a document nobody opens. */
-CREATE OR REPLACE VIEW GOLD.V_PLANT_A_HEALTH AS
-SELECT
-  'PLANT_A'                                             AS PLANT_CODE,
-  h.MACHINE_CODE,
-  h.HEALTH_DATE,
-  h.WINDOWS,
-  h.HEALTH_INDEX_AVG,
-  h.HEALTH_INDEX_WORST,
-  h.MEAN_ABS_Z,
-  h.CHANNEL_EXCURSIONS,
-  h.DOMINANT_CHANNEL,
-  h.ANY_SCORED_PERIOD,
-  'Deviation from this machine own baseline. Measured to have no relationship to subsequent alarms: 21.2% alarm rate at worst health against 17.7% at best.'
-                                                        AS INTERPRETATION_LIMIT,
-  h.DATA_ORIGIN
-FROM ML.PLANT_A_HEALTH_DAILY h;
-
-/* Plant B stop risk, joined to the metrics that say how much to trust it. */
 CREATE OR REPLACE VIEW GOLD.V_PLANT_B_RISK AS
-SELECT
-  'PLANT_B'                                             AS PLANT_CODE,
-  r.MACHINE_CODE,
-  r.HOUR_TS,
-  TO_DATE(r.HOUR_TS)                                    AS RISK_DATE,
-  ROUND(r.RISK_SCORE, 4)                                AS RISK_SCORE,
-  r.RISK_BAND,
-  r.IS_FLAGGED,
-  r.LABEL_HEAVY_STOP                                    AS ACTUAL_HEAVY_STOP,
-  ROUND(r.NEXT_HOUR_DOWNTIME * 100, 2)                  AS ACTUAL_NEXT_HOUR_DOWNTIME_PCT,
-  ROUND(m.AUC, 4)                                       AS MODEL_AUC_THIS_MACHINE,
-  ROUND(m.TOP_DECILE_PRECISION * 100, 2)                AS MODEL_PRECISION_PCT,
-  ROUND(m.BASELINE_TOP_DECILE_PRECISION * 100, 2)       AS BASELINE_PRECISION_PCT,
-  ROUND(m.BASE_RATE * 100, 2)                           AS BASE_RATE_PCT,
-  m.BASELINE_TOP_DECILE_PRECISION > m.TOP_DECILE_PRECISION AS MODEL_LOSES_TO_BASELINE,
-  r.DATA_ORIGIN
+SELECT 'PLANT_B' PLANT_CODE,r.MACHINE_KEY,r.MACHINE_CODE,
+  /* Snowpark write_pandas persists pandas timestamps as epoch nanoseconds on
+     this account. Convert once in the presentation view so every consumer,
+     including Streamlit, receives a real TIMESTAMP_NTZ. */
+  TO_TIMESTAMP_NTZ(r.HOUR_TS/1000000000) HOUR_TS,
+  r.RISK_SCORE,r.RISK_PERCENTILE,r.RISK_BAND,r.IS_FLAGGED,
+  r.LABEL_HEAVY_STOP ACTUAL_HEAVY_STOP,r.NEXT_HOUR_DOWNTIME,
+  m.AUC,m.AVG_PRECISION,m.TOP_DECILE_PRECISION,m.TOP_DECILE_RECALL,
+  m.BASELINE_AUC,m.BASELINE_AVG_PRECISION,
+  m.BASELINE_TOP_DECILE_PRECISION,m.BASELINE_TOP_DECILE_RECALL,
+  IFF(m.TOP_DECILE_PRECISION>m.BASELINE_TOP_DECILE_PRECISION,FALSE,TRUE)
+    MODEL_LOSES_TO_BASELINE,
+  TO_TIMESTAMP_NTZ(m.BLIND_TEST_START/1000000000) BLIND_TEST_START,
+  TO_TIMESTAMP_NTZ(m.BLIND_TEST_END/1000000000) BLIND_TEST_END,
+  m.CAVEAT,r.DATA_ORIGIN
 FROM ML.PLANT_B_RISK_SCORE r
-LEFT JOIN ML.PLANT_B_MODEL_METRICS m ON m.SCOPE = r.MACHINE_CODE;
+LEFT JOIN ML.PLANT_B_MODEL_METRICS m ON m.SCOPE=r.MACHINE_CODE;
 
-/* One place the app can read to state what it is and is not claiming. */
 CREATE OR REPLACE VIEW GOLD.V_PROVENANCE AS
-SELECT 'PLANT_A' AS PLANT_CODE, 'Sensor readings'        AS SUBJECT, 'OBSERVED' AS DATA_ORIGIN,
-       'CoMoPI, DOI 10.5281/zenodo.7572501, CC BY 4.0'   AS SOURCE,
-       'Sixteen channels, anonymised and rescaled to [0,1]. Physical units are not recoverable.' AS NOTE
-UNION ALL SELECT 'PLANT_A', 'Alarm counts', 'OBSERVED',
-       'CoMoPI, DOI 10.5281/zenodo.7572501, CC BY 4.0',
-       'Alarm codes are anonymised. The published fault target AL_53/AL_54 appears in only 41 windows and is too rare to model.'
-UNION ALL SELECT 'PLANT_A', 'Health index', 'DERIVED_FROM_OBSERVED',
-       'Computed here from CoMoPI sensors only',
-       'Robust deviation from each machine first 200 windows. Not validated against failures, because the data does not support that.'
-UNION ALL SELECT 'PLANT_B', 'Production intervals', 'OBSERVED',
-       'PIADE, DOI 10.5281/zenodo.7071747, CC BY 4.0',
-       'State, alarm, duration, cumulative package counters and speed per interval.'
-UNION ALL SELECT 'PLANT_B', 'OEE', 'DERIVED_FROM_OBSERVED',
-       'Computed here from PIADE intervals only',
-       'Availability x Performance x Quality from published columns. Ideal rate is each machine best demonstrated speed, not a vendor specification.'
-UNION ALL SELECT 'PLANT_B', 'Stop risk', 'DERIVED_FROM_OBSERVED',
-       'Computed here from PIADE hourly aggregates only',
-       'Chronological holdout. Top-decile precision 67.6% against a 40.3% base rate and a 55.7% do-nothing baseline. Feature importance is dominated by recent downtime, so this is a smoothed persistence rule.'
-UNION ALL SELECT 'BOTH', 'Work orders, technicians, costs', 'SYNTHETIC_IT',
-       'Generated here from each plant own events',
-       'Invented. Anchored one-to-one to real events, never blended across plants, deterministic from a fixed seed. Rates and margins are chosen and have no basis in either source.';
+SELECT 'PLANT_B' PLANT_CODE,'PIADE production and stop events' SUBJECT,
+  'OBSERVED' DATA_ORIGIN,'PIADE DOI 10.5281/zenodo.7071747, CC BY 4.0' SOURCE,
+  'Machine, alarm and site identities are anonymised by the publisher.' NOTE
+UNION ALL SELECT 'PLANT_B','OEE','DERIVED_FROM_OBSERVED',
+  'Computed from PIADE intervals',
+  'Ideal rate is best demonstrated speed; quality is throughput yield, not inspection quality.'
+UNION ALL SELECT 'PLANT_B','Next-hour heavy-stop risk','DERIVED_FROM_OBSERVED',
+  'ExtraTrees over PIADE hourly aggregates',
+  'Selected on rolling-origin validation and measured once on the blind period from 2021-12-01; partly persistence and not causal.'
+UNION ALL SELECT 'PLANT_B','ERP, work orders, materials, inventory and euros','SYNTHETIC_ERP',
+  'Deterministic scenarios anchored to PIADE',
+  'Invented business records and financial assumptions. Generic service-kit names do not identify physical components.';
 
-/* ==========================================================================
-   2. Semantic view for Cortex Analyst.
-
-   Kept to Plant B's OEE and cost, because that is where a natural-language
-   question has a well-defined answer. Plant A has no production measures and
-   inviting free-form questions about it would produce confident nonsense.
-   ========================================================================== */
-
+/* Semantic-view identifiers use compact logical names while physical contracts
+   stay explicit. If an account release does not support SEMANTIC VIEW, all
+   presentation views above remain usable without Cortex Analyst. */
 CREATE OR REPLACE SEMANTIC VIEW GOLD.SEM_SNOWCORE_OEE
-
   TABLES (
-    oee AS GOLD.PIADE_OEE_DAILY
-      PRIMARY KEY (MACHINE_KEY, OEE_DATE)
-      WITH SYNONYMS ('oee', 'overall equipment effectiveness', 'line performance')
-      COMMENT = 'Plant B daily OEE, derived from published production intervals.',
-
-    machine AS SILVER.DIM_MACHINE
+    machine AS GOLD.V_PIADE_MACHINE
       PRIMARY KEY (MACHINE_KEY)
-      WITH SYNONYMS ('machine', 'equipment', 'asset', 'line')
-      COMMENT = 'Machines across both plants. Codes are publisher-assigned mock identifiers.',
-
-    wo AS GOLD.WORK_ORDER
+      WITH SYNONYMS ('line','equipment','asset')
+      COMMENT='Five anonymised PIADE packaging machines.',
+    oee AS GOLD.PIADE_OEE_DAILY
+      PRIMARY KEY (MACHINE_KEY,OEE_DATE)
+      WITH SYNONYMS ('oee','daily production','line performance')
+      COMMENT='Daily measures derived from observed PIADE intervals.',
+    production_order AS GOLD.PRODUCTION_ORDER
+      PRIMARY KEY (PRODUCTION_ORDER_ID)
+      WITH SYNONYMS ('production order','erp order','daily order')
+      COMMENT='SYNTHETIC_ERP order, one per observed PIADE machine/day.',
+    work_order AS GOLD.V_PIADE_WORK_ORDER
       PRIMARY KEY (WORK_ORDER_ID)
-      WITH SYNONYMS ('work order', 'ticket', 'maintenance job', 'repair')
-      COMMENT = 'SYNTHETIC maintenance records. Invented, but anchored to real observed events.'
+      WITH SYNONYMS ('work order','repair','maintenance job')
+      COMMENT='SYNTHETIC_IT work order anchored to an observed PIADE breakdown.',
+    work_order_part AS GOLD.WORK_ORDER_PART
+      PRIMARY KEY (WORK_ORDER_PART_ID)
+      WITH SYNONYMS ('part consumption','service kit usage')
+      COMMENT='SYNTHETIC_ERP deterministic reconciliation to work-order parts cost.',
+    material AS GOLD.DIM_MATERIAL
+      PRIMARY KEY (MATERIAL_ID)
+      WITH SYNONYMS ('material','service kit')
+      COMMENT='Generic scenario kit keyed by anonymised cause; not a physical component claim.'
   )
-
   RELATIONSHIPS (
-    oee_to_machine AS oee (MACHINE_KEY) REFERENCES machine,
-    wo_to_machine  AS wo  (MACHINE_KEY) REFERENCES machine
+    oee_to_machine AS oee(MACHINE_KEY) REFERENCES machine,
+    production_order_to_machine AS production_order(MACHINE_KEY) REFERENCES machine,
+    work_order_to_machine AS work_order(MACHINE_KEY) REFERENCES machine,
+    part_to_work_order AS work_order_part(WORK_ORDER_ID) REFERENCES work_order,
+    part_to_material AS work_order_part(MATERIAL_ID) REFERENCES material
   )
-
   FACTS (
-    oee.run_seconds       AS RUN_SEC,
-    oee.planned_seconds   AS PLANNED_SEC,
-    oee.downtime_seconds  AS DOWNTIME_SEC,
-    oee.packages_out      AS PACKAGES_OUT,
-    oee.packages_in       AS PACKAGES_IN,
+    oee.run_seconds AS RUN_SEC,
+    oee.planned_seconds AS PLANNED_SEC,
+    oee.downtime_seconds AS DOWNTIME_SEC,
+    oee.idle_seconds AS IDLE_SEC,
+    oee.packages_out AS PACKAGES_OUT,
+    oee.packages_in AS PACKAGES_IN,
     oee.theoretical_packages AS THEORETICAL_PACKAGES,
-    wo.total_cost         AS TOTAL_COST,
-    wo.labour_cost        AS LABOUR_COST,
-    wo.parts_cost         AS PARTS_COST,
-    wo.event_minutes      AS SOURCE_EVENT_MINUTES
+    production_order.target_units AS TARGET_OUTPUT_UNITS,
+    production_order.actual_units AS ACTUAL_OUTPUT_UNITS,
+    production_order.margin_exposure AS MARGIN_EXPOSURE_EUR,
+    work_order.total_cost AS TOTAL_COST,
+    work_order.labour_cost AS LABOUR_COST,
+    work_order.parts_cost AS PARTS_COST,
+    work_order_part.quantity AS QUANTITY,
+    work_order_part.extended_cost AS EXTENDED_COST_EUR
   )
-
   DIMENSIONS (
-    oee.oee_date          AS OEE_DATE
-      WITH SYNONYMS ('date', 'day') COMMENT = 'Production day, UTC.',
-    oee.plant             AS PLANT_CODE
-      WITH SYNONYMS ('plant', 'site', 'factory')
-      COMMENT = 'PLANT_A and PLANT_B are different factories and must never be combined.',
-    machine.machine_code  AS MACHINE_CODE
-      WITH SYNONYMS ('machine name', 'equipment id'),
-    machine.plant_code    AS PLANT_CODE,
-    wo.priority           AS PRIORITY
-      WITH SYNONYMS ('urgency', 'severity') COMMENT = 'P1 is the longest stop band, P4 the shortest.',
-    wo.cause_code         AS CAUSE_CODE
-      WITH SYNONYMS ('cause', 'stop reason', 'alarm')
-      COMMENT = 'UNDIAGNOSED means the source recorded no alarm for the stop, which covers most of Plant B long stops.',
-    wo.technician         AS TECH_NAME
-      WITH SYNONYMS ('technician', 'engineer') COMMENT = 'Invented staff name.'
+    machine.machine_code AS MACHINE_CODE WITH SYNONYMS ('line name','equipment id'),
+    oee.production_date AS OEE_DATE WITH SYNONYMS ('date','day'),
+    production_order.order_id AS PRODUCTION_ORDER_ID,
+    production_order.order_status AS ORDER_STATUS,
+    work_order.priority AS PRIORITY,
+    work_order.cause_code AS CAUSE_CODE
+      COMMENT='Publisher-anonymised alarm code; do not infer component identity.',
+    material.material_id AS MATERIAL_ID,
+    material.material_name AS MATERIAL_NAME
+      COMMENT='Synthetic generic service-kit name, not an observed component.'
   )
-
   METRICS (
-    /* Ratios are recomputed from summed seconds and counts, never averaged
-       from daily ratios, so that a week's Availability is not the mean of
-       seven fractions with different denominators. */
-    oee.availability  AS SUM(oee.run_seconds) / NULLIF(SUM(oee.planned_seconds), 0)
-      WITH SYNONYMS ('availability', 'uptime')
-      COMMENT = 'Run time over planned production time.',
-    oee.performance   AS SUM(oee.packages_out) / NULLIF(SUM(oee.theoretical_packages), 0)
-      WITH SYNONYMS ('performance', 'speed loss')
-      COMMENT = 'Actual output over what the best demonstrated rate would have produced in the run time.',
-    oee.quality       AS SUM(oee.packages_out) / NULLIF(SUM(oee.packages_in), 0)
-      WITH SYNONYMS ('quality', 'yield')
-      COMMENT = 'Packages out over packages in. A throughput yield, not a laboratory inspection result.',
-    oee.oee_pct       AS (SUM(oee.run_seconds) / NULLIF(SUM(oee.planned_seconds), 0))
-                       * (SUM(oee.packages_out) / NULLIF(SUM(oee.theoretical_packages), 0))
-                       * (SUM(oee.packages_out) / NULLIF(SUM(oee.packages_in), 0))
-      WITH SYNONYMS ('oee', 'overall equipment effectiveness'),
-    oee.downtime_hours AS SUM(oee.downtime_seconds) / 3600
-      WITH SYNONYMS ('downtime', 'unplanned downtime', 'lost hours'),
-    oee.good_packages  AS SUM(oee.packages_out)
-      WITH SYNONYMS ('output', 'good count', 'packages produced'),
-    wo.maintenance_cost AS SUM(wo.total_cost)
-      WITH SYNONYMS ('cost', 'maintenance cost', 'spend')
-      COMMENT = 'SYNTHETIC. Rests on chosen labour rates and margins, not on any published figure.',
-    wo.order_count      AS COUNT(wo.WORK_ORDER_ID)
-      WITH SYNONYMS ('work orders', 'tickets', 'jobs')
+    oee.availability AS SUM(oee.run_seconds)/NULLIF(SUM(oee.planned_seconds),0)
+      WITH SYNONYMS ('availability','uptime'),
+    oee.performance AS SUM(oee.packages_out)/NULLIF(SUM(oee.theoretical_packages),0)
+      WITH SYNONYMS ('performance','speed efficiency'),
+    oee.quality AS SUM(oee.packages_out)/NULLIF(SUM(oee.packages_in),0)
+      WITH SYNONYMS ('quality','throughput yield'),
+    oee.oee AS
+      (SUM(oee.run_seconds)/NULLIF(SUM(oee.planned_seconds),0))
+      *(SUM(oee.packages_out)/NULLIF(SUM(oee.theoretical_packages),0))
+      *(SUM(oee.packages_out)/NULLIF(SUM(oee.packages_in),0)),
+    oee.breakdown_hours AS SUM(oee.downtime_seconds)/3600,
+    oee.idle_hours AS SUM(oee.idle_seconds)/3600,
+    production_order.output AS SUM(production_order.actual_units),
+    production_order.exposure AS SUM(production_order.margin_exposure)
+      COMMENT='SYNTHETIC_ERP euros based on an assumed margin.',
+    work_order.order_count AS COUNT(work_order.WORK_ORDER_ID),
+    work_order.maintenance_cost AS SUM(work_order.total_cost)
+      COMMENT='SYNTHETIC_IT euros, not observed accounting data.',
+    work_order_part.part_cost AS SUM(work_order_part.extended_cost)
+      COMMENT='SYNTHETIC_ERP and reconciled to work-order parts cost.'
   )
+  COMMENT='PIADE-only OEE and traceable synthetic ERP. Synthetic records and euros must be identified as scenarios.';
 
-  COMMENT = 'Plant B OEE and its synthetic maintenance cost. Plant A is deliberately excluded because it publishes no production counts.';
-
-/* ==========================================================================
-   3. Cortex-written narrative.
-
-   Bounded by design: the input is a handful of aggregate rows, not the fact
-   tables. Every prompt states which figures are synthetic, because a model
-   given only numbers will describe invented costs as though they were
-   measured.
-   ========================================================================== */
-
+/* Three aggregate-only calls. The model supplies prose, never facts. */
 CREATE OR REPLACE TABLE GOLD.CORTEX_BRIEFING AS
-WITH plant_b_facts AS (
-  /* Read from the rollup, so the narrative quotes the same OEE the rest of
-     the application shows rather than a mean of ratios. */
-  SELECT
-    ROUND(OEE * 100, 1)                                         AS OEE_PCT,
-    ROUND(AVAILABILITY * 100, 1)                                AS AVAIL_PCT,
-    ROUND(PERFORMANCE * 100, 1)                                 AS PERF_PCT,
-    ROUND(QUALITY * 100, 1)                                     AS QUAL_PCT,
-    BREAKDOWN_HOURS,
-    IDLE_HOURS,
-    SLOW_RUNNING_HOURS
-  FROM GOLD.V_OEE_ROLLUP
-  WHERE PLANT_CODE = 'PLANT_B' AND MACHINE_CODE IS NULL
-),
-plant_b_cost AS (
-  SELECT
-    ROUND(SUM(MAINTENANCE_COST), 0)                             AS MAINT_COST,
-    ROUND(SUM(IDLE_FORGONE_MARGIN), 0)                          AS IDLE_COST,
-    ROUND(SUM(IDLE_HOURS), 0)                                   AS IDLE_HOURS,
-    ROUND(SUM(BREAKDOWN_HOURS), 0)                              AS BREAKDOWN_HOURS
-  FROM GOLD.V_COST_BY_MACHINE WHERE PLANT_CODE = 'PLANT_B'
-),
-plant_a_facts AS (
-  SELECT
-    COUNT(DISTINCT MACHINE_CODE)                                AS MACHINES,
-    ROUND(AVG(HEALTH_INDEX_AVG), 1)                             AS AVG_HEALTH,
-    ROUND(MIN(HEALTH_INDEX_WORST), 1)                           AS WORST_HEALTH,
-    MODE(DOMINANT_CHANNEL)                                      AS DOMINANT_CHANNEL
-  FROM GOLD.V_PLANT_A_HEALTH
-),
-model AS (
-  SELECT
-    ROUND(TOP_DECILE_PRECISION * 100, 1)                        AS PRECISION_PCT,
-    ROUND(BASE_RATE * 100, 1)                                   AS BASE_RATE_PCT,
-    ROUND(BASELINE_TOP_DECILE_PRECISION * 100, 1)               AS BASELINE_PCT,
-    ROUND(AUC, 3)                                               AS AUC
-  FROM ML.PLANT_B_MODEL_METRICS WHERE SCOPE = 'FLEET'
-)
-SELECT
-  'PLANT_B_OEE' AS BRIEFING_KEY,
+WITH k AS (SELECT * FROM GOLD.V_EXECUTIVE_KPI),
+m AS (SELECT * FROM ML.PLANT_B_MODEL_METRICS WHERE SCOPE='FLEET')
+SELECT 'PIADE_EXECUTIVE' BRIEFING_KEY,
   SNOWFLAKE.CORTEX.COMPLETE('llama3.3-70b',
-    'You are writing three sentences for a plant manager. Use only these figures and invent nothing. '
-    || 'Do not use bullet points or headings. State the OEE, name which of the three terms is losing the most, '
-    || 'and separate idle hours from breakdown hours because they have different owners: idle time means the '
-    || 'machine was available and waiting, breakdown time means it was faulted. '
-    || 'Figures: OEE ' || f.OEE_PCT::VARCHAR || '%, Availability ' || f.AVAIL_PCT::VARCHAR
-    || '%, Performance ' || f.PERF_PCT::VARCHAR || '%, Quality ' || f.QUAL_PCT::VARCHAR
-    || '%. Hours lost: ' || f.IDLE_HOURS::VARCHAR || ' idle, '
-    || f.BREAKDOWN_HOURS::VARCHAR || ' breakdown, '
-    || f.SLOW_RUNNING_HOURS::VARCHAR || ' running below rate.'
-  ) AS NARRATIVE,
-  'DERIVED_FROM_OBSERVED' AS INPUT_ORIGIN,
-  'llama3.3-70b'          AS MODEL_USED,
-  CURRENT_TIMESTAMP()     AS GENERATED_AT
-FROM plant_b_facts f
-
+    'Write three cautious sentences using only these PIADE facts. Separate idle from breakdown because planning owns idle and maintenance owns faults. '
+    ||'OEE='||ROUND(k.SITE_WEIGHTED_OEE*100,1)||'%, availability='||ROUND(k.AVAILABILITY*100,1)
+    ||'%, performance='||ROUND(k.PERFORMANCE*100,1)||'%, throughput yield='||ROUND(k.QUALITY*100,1)
+    ||'%, breakdown hours='||ROUND(k.BREAKDOWN_HOURS,1)||', idle hours='||ROUND(k.IDLE_HOURS,1)||'.') NARRATIVE,
+  'DERIVED_FROM_OBSERVED' INPUT_ORIGIN,'llama3.3-70b' MODEL_USED,CURRENT_TIMESTAMP GENERATED_AT
+FROM k
 UNION ALL
-SELECT
-  'PLANT_B_COST',
+SELECT 'PIADE_MODEL',
   SNOWFLAKE.CORTEX.COMPLETE('llama3.3-70b',
-    'Write four sentences for a plant manager. These cost figures are SYNTHETIC, generated from real stop '
-    || 'durations using assumed labour rates and an assumed contribution margin. Say so explicitly in your first '
-    || 'sentence. Then make the central point: the idle cost is not a maintenance problem. Every recorded '
-    || 'breakdown on this line carries an alarm code and every idle period carries none, so the idle hours are '
-    || 'a line that was available and waiting, not an unexplained failure. Say who should own each number: '
-    || 'maintenance owns the breakdown cost, planning owns the idle cost. No bullet points. '
-    || 'Figures: attributed maintenance cost ' || c.MAINT_COST::VARCHAR || ' EUR across '
-    || c.BREAKDOWN_HOURS::VARCHAR || ' breakdown hours; forgone margin from idling '
-    || c.IDLE_COST::VARCHAR || ' EUR across ' || c.IDLE_HOURS::VARCHAR || ' idle hours.'
-  ),
-  'SYNTHETIC_IT',
-  'llama3.3-70b',
-  CURRENT_TIMESTAMP()
-FROM plant_b_cost c
-
+    'Write three sceptical sentences using only these final-blind-test metrics. Compare model with persistence, state that only the top 10% of rows were selected exactly, and do not claim optimality. '
+    ||'AUC='||ROUND(m.AUC,3)||', AP='||ROUND(m.AVG_PRECISION,3)
+    ||', top-decile precision='||ROUND(m.TOP_DECILE_PRECISION*100,1)||'%, recall='||ROUND(m.TOP_DECILE_RECALL*100,1)
+    ||'%; persistence AUC='||ROUND(m.BASELINE_AUC,3)||', AP='||ROUND(m.BASELINE_AVG_PRECISION,3)
+    ||', top-decile precision='||ROUND(m.BASELINE_TOP_DECILE_PRECISION*100,1)||'%. Caveat: '||m.CAVEAT),
+  'DERIVED_FROM_OBSERVED','llama3.3-70b',CURRENT_TIMESTAMP
+FROM m
 UNION ALL
-SELECT
-  'PLANT_B_MODEL',
+SELECT 'PIADE_FINANCIAL',
   SNOWFLAKE.CORTEX.COMPLETE('llama3.3-70b',
-    'Write three sentences describing how much to trust a stop-risk model, for a reader who will act on it. '
-    || 'Be sceptical rather than promotional. The honest comparison is the model against the do-nothing baseline, '
-    || 'not against the base rate. No bullet points. '
-    || 'Figures: flagging the riskiest 10% of hours gives ' || m.PRECISION_PCT
-    || '% precision; the base rate is ' || m.BASE_RATE_PCT
-    || '%; a trivial rule of "this hour already had downtime" gives ' || m.BASELINE_PCT
-    || '%; AUC is ' || m.AUC || '. Feature importance is dominated by 24-hour rolling downtime.'
-  ),
-  'DERIVED_FROM_OBSERVED',
-  'llama3.3-70b',
-  CURRENT_TIMESTAMP()
-FROM model m
-
-UNION ALL
-SELECT
-  'PLANT_A_HEALTH',
-  SNOWFLAKE.CORTEX.COMPLETE('llama3.3-70b',
-    'Write three sentences about a condition-monitoring index for a maintenance engineer. It measures how far a '
-    || 'machine has moved from its own early-life baseline across sixteen anonymised sensor channels. It has been '
-    || 'measured to have NO relationship to subsequent alarms: the alarm rate is 21.2% at worst health and 17.7% '
-    || 'at best. Say clearly what it does tell you and what it does not. Do not call it predictive. No bullet points. '
-    || 'Figures: ' || a.MACHINES || ' machines monitored, average health index '
-    || a.AVG_HEALTH || ' out of 100, worst observed ' || a.WORST_HEALTH
-    || ', and the channel most often responsible is ' || a.DOMINANT_CHANNEL || '.'
-  ),
-  'DERIVED_FROM_OBSERVED',
-  'llama3.3-70b',
-  CURRENT_TIMESTAMP()
-FROM plant_a_facts a;
+    'Write three sentences. Start by saying the euros and ERP records are synthetic scenarios anchored to PIADE, not observed accounting data. '
+    ||'Estimated margin exposure EUR='||ROUND(k.ESTIMATED_MARGIN_EXPOSURE_EUR,0)
+    ||', work orders='||k.WORK_ORDER_COUNT||', stock risks='||k.STOCK_RISK_COUNT
+    ||'. Do not invent savings, ROI, suppliers or component identities.'),
+  'SYNTHETIC_ERP','llama3.3-70b',CURRENT_TIMESTAMP
+FROM k;
 
 COMMENT ON TABLE GOLD.CORTEX_BRIEFING IS
-  'Cortex-written narrative over aggregates. INPUT_ORIGIN says whether the figures behind each briefing are observed or synthetic.';
+  'Three bounded PIADE briefings. Narratives use aggregate facts only; synthetic financial inputs are explicitly labelled.';
 
-/* Per-cause recommendations.
-
-   The previous version asked llama3.1-8b to CLASSIFY each cause into one of
-   four buckets. It returned 'OCCASIONAL_LONG' for all nineteen, including for
-   a cause with 50,149 occurrences at a 1.3-minute median and one with 64
-   occurrences at 2.7 minutes. Valid output, useless answer, and it cost
-   nineteen LLM calls to be worse than an IF statement. The classification is
-   now a deterministic rule inside GOLD.V_DOWNTIME_PARETO.
-
-   What remains for the model is the thing it is actually good at: turning a
-   pattern and a set of numbers into a sentence a supervisor can act on. The
-   label is supplied to it rather than asked of it, and the prompt states that
-   the alarm code is anonymised so no mechanism can be inferred from it. */
-CREATE OR REPLACE TABLE GOLD.CORTEX_CAUSE_ADVICE AS
-SELECT
-  PLANT_CODE,
-  CAUSE_CODE,
-  LOSS_NATURE,
-  OWNING_FUNCTION,
-  STOP_PATTERN,
-  STOP_COUNT,
-  STOP_HOURS,
-  MEDIAN_STOP_MIN,
-  PCT_OF_STOP_TIME,
-  TRIM(SNOWFLAKE.CORTEX.COMPLETE('llama3.3-70b',
-    'Write one sentence of advice for a shift supervisor about a single stop cause. '
-    || 'The alarm code is anonymised by the data publisher, so do not speculate about a mechanism, a component '
-    || 'or a root cause; talk about the pattern and what to do about a pattern of that shape. '
-    || 'Be concrete and do not pad. One sentence only, no preamble. '
-    || 'Cause code: ' || CAUSE_CODE
-    || '. Nature: ' || LOSS_NATURE
-    || '. Owned by: ' || OWNING_FUNCTION
-    || '. Pattern: ' || STOP_PATTERN
-    || '. Occurrences: ' || STOP_COUNT::VARCHAR
-    || '. Median duration: ' || MEDIAN_STOP_MIN::VARCHAR || ' minutes'
-    || '. Total hours lost: ' || STOP_HOURS::VARCHAR
-    || '. Share of all stop time: ' || PCT_OF_STOP_TIME::VARCHAR || '%.'
-  )) AS ADVICE,
-  'DERIVED_FROM_OBSERVED' AS DATA_ORIGIN,
-  'llama3.3-70b'          AS MODEL_USED
-FROM GOLD.V_DOWNTIME_PARETO
-/* Bounded on purpose. The tail below 0.5% of stop time is a hundred-odd codes
-   nobody will act on, and every row here is a paid LLM call. */
-WHERE PCT_OF_STOP_TIME >= 0.5;
-
-DROP TABLE IF EXISTS GOLD.CORTEX_CAUSE_GROUP;
-
-/* ==========================================================================
-   4. Verification.
-   ========================================================================== */
-
-/* 1. Every presentation view returns rows, and none of them has quietly
-      merged the plants. */
-SELECT 'V_FLEET' AS VIEW_NAME, COUNT(*) AS ROW_COUNT,
-       COUNT(DISTINCT PLANT_CODE) AS PLANTS FROM GOLD.V_FLEET
-UNION ALL SELECT 'V_OEE_DAILY',       COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_OEE_DAILY
-UNION ALL SELECT 'V_OEE_ROLLUP',      COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_OEE_ROLLUP
-UNION ALL SELECT 'V_DOWNTIME_PARETO', COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_DOWNTIME_PARETO
-UNION ALL SELECT 'V_COST_BY_MACHINE', COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_COST_BY_MACHINE
-UNION ALL SELECT 'V_PLANT_A_HEALTH',  COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_PLANT_A_HEALTH
-UNION ALL SELECT 'V_PLANT_B_RISK',    COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_PLANT_B_RISK
-UNION ALL SELECT 'V_PROVENANCE',      COUNT(*), COUNT(DISTINCT PLANT_CODE) FROM GOLD.V_PROVENANCE;
-
-/* 1b. The canonical OEE. One plant row and five machine rows. This is the
-       only OEE figure the application is allowed to display. */
-SELECT PLANT_CODE, COALESCE(MACHINE_CODE, 'ALL MACHINES') AS SCOPE,
-       PLANNED_HOURS, RUN_HOURS, BREAKDOWN_HOURS, IDLE_HOURS, SLOW_RUNNING_HOURS,
-       AVAILABILITY, PERFORMANCE, QUALITY, OEE
-FROM GOLD.V_OEE_ROLLUP
-ORDER BY PLANT_CODE, MACHINE_CODE NULLS FIRST;
-
-/* 2. The Pareto must reach 100% cumulatively. IDLE_NO_ALARM should be at the
-      top and must be labelled WAITING and owned by PLANNING, not
-      MAINTENANCE. That labelling is the correction this view exists for. */
-SELECT CAUSE_CODE, LOSS_NATURE, OWNING_FUNCTION, STOP_PATTERN,
-       STOP_COUNT, STOP_HOURS, MEDIAN_STOP_MIN, PCT_OF_STOP_TIME, CUMULATIVE_PCT
-FROM GOLD.V_DOWNTIME_PARETO
-WHERE PLANT_CODE = 'PLANT_B'
-ORDER BY STOP_HOURS DESC
-LIMIT 12;
-
-/* 2b. Maintenance against idling, per machine. PCT_COST_FROM_IDLING is the
-       number that tells a maintenance manager which of these is theirs. */
-SELECT PLANT_CODE, MACHINE_CODE, WORK_ORDERS, BREAKDOWN_HOURS,
-       MAINTENANCE_COST, IDLE_INCIDENTS, IDLE_HOURS, IDLE_FORGONE_MARGIN,
-       PCT_COST_FROM_IDLING
-FROM GOLD.V_COST_BY_MACHINE
-ORDER BY PLANT_CODE, MACHINE_CODE;
-
-/* 3. The semantic view answers a question the way the metric definitions
-      intend. Availability here must match the ratio computed directly from
-      GOLD.PIADE_OEE_DAILY; if it does not, a metric is defined wrongly. */
+/* Verification: all fleet rows must be PIADE and narratives must be the three
+   approved keys only. Semantic metric results should reconcile to direct SQL. */
+SELECT COUNT(*) FLEET_ROWS,COUNT_IF(PLANT_CODE<>'PLANT_B') NON_PIADE_ROWS FROM GOLD.V_FLEET;
+SELECT COUNT(*) RISK_ROWS,MIN(HOUR_TS) FIRST_SCORE,MAX(HOUR_TS) LAST_SCORE,
+  COUNT_IF(HOUR_TS<'2021-12-01'::TIMESTAMP_NTZ) PRE_BLIND_SCORES FROM GOLD.V_PLANT_B_RISK;
+SELECT BRIEFING_KEY,INPUT_ORIGIN,MODEL_USED,NARRATIVE FROM GOLD.CORTEX_BRIEFING ORDER BY BRIEFING_KEY;
 SELECT * FROM SEMANTIC_VIEW(
   GOLD.SEM_SNOWCORE_OEE
   DIMENSIONS machine.machine_code
-  METRICS oee.availability, oee.performance, oee.quality, oee.oee_pct,
-          oee.downtime_hours
+  METRICS oee.availability,oee.performance,oee.quality,oee.oee,
+          oee.breakdown_hours,oee.idle_hours
 ) ORDER BY MACHINE_CODE;
-
-/* The independent check of the same numbers. */
-SELECT
-  MACHINE_CODE,
-  ROUND(SUM(RUN_SEC) / NULLIF(SUM(PLANNED_SEC), 0), 4)                 AS AVAILABILITY_DIRECT,
-  ROUND(SUM(PACKAGES_OUT) / NULLIF(SUM(THEORETICAL_PACKAGES), 0), 4)   AS PERFORMANCE_DIRECT,
-  ROUND(SUM(PACKAGES_OUT) / NULLIF(SUM(PACKAGES_IN), 0), 4)            AS QUALITY_DIRECT,
-  ROUND(SUM(DOWNTIME_SEC) / 3600.0, 1)                                 AS DOWNTIME_HOURS_DIRECT
-FROM GOLD.PIADE_OEE_DAILY
-GROUP BY MACHINE_CODE
-ORDER BY MACHINE_CODE;
-
-/* 4. The narrative. Read it, do not just count the rows: a model handed
-      synthetic costs will describe them as measured unless the prompt stops
-      it, and the PLANT_B_COST briefing is the one to check for that. */
-SELECT BRIEFING_KEY, INPUT_ORIGIN, MODEL_USED, NARRATIVE
-FROM GOLD.CORTEX_BRIEFING
-ORDER BY BRIEFING_KEY;
-
-/* 5. Per-cause advice. Read the sentences. The failure mode to look for is a
-      model inventing a mechanism for an anonymised code — anything naming a
-      bearing, a seal, a gripper or a sensor is fabrication and the prompt has
-      failed. */
-SELECT CAUSE_CODE, LOSS_NATURE, STOP_PATTERN, STOP_HOURS, ADVICE
-FROM GOLD.CORTEX_CAUSE_ADVICE
-ORDER BY STOP_HOURS DESC;
-
-/* 5b. The deterministic classification that replaced the LLM one, so the
-       spread can be seen at a glance. Anything that puts every cause in one
-       bucket has the same problem the LLM had. */
-SELECT STOP_PATTERN, COUNT(*) AS CAUSES,
-       ROUND(SUM(STOP_HOURS), 1) AS STOP_HOURS,
-       ROUND(SUM(PCT_OF_STOP_TIME), 2) AS PCT_OF_STOP_TIME
-FROM GOLD.V_DOWNTIME_PARETO
-WHERE PLANT_CODE = 'PLANT_B'
-GROUP BY STOP_PATTERN
-ORDER BY STOP_HOURS DESC;

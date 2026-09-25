@@ -2,6 +2,13 @@
 
 *Investigation log — 22 September 2026*
 
+> **Scope note:** this finding concerns the synthetic Snowflake quickstart in
+> `SNOWCORE_INDUSTRIES`. It remains a separate reproducible exhibit. The
+> deployed command center now uses real PIADE operations in `SNOWCORE_REAL`;
+> its target, features and measured metrics are different. See
+> [`PIADE-COMMAND-CENTER.md`](PIADE-COMMAND-CENTER.md). The AUC 0.766 below
+> must not be cited as PIADE performance.
+
 ---
 
 ## Summary

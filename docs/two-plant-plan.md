@@ -1,6 +1,11 @@
 # Two-plant plan (plain English)
 
-**Status:** decided, not started in Snowflake yet.  
+> **Superseded 25 September 2026.** This document is retained as the decision
+> record for the two-dataset experiment. The submission now uses PIADE as one
+> coherent factory so it can demonstrate an auditable OT → maintenance → ERP
+> digital thread. See [`PIADE-COMMAND-CENTER.md`](PIADE-COMMAND-CENTER.md).
+
+**Status:** historical; implemented, evaluated, then retired from the primary app.
 **Problem:** Predictive Maintenance and OEE Command Center.
 
 ---

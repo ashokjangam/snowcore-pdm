@@ -1,13 +1,53 @@
-# SnowCore PdM — Predictive Maintenance & OEE Command Center
+# SnowCore — PIADE Maintenance, OEE & ERP Command Center
 
 **Snowflake CoCo CLI Hackathon 2026 — GCC Edition · Problem Statement 3**
 
-An AI-native predictive maintenance application built entirely on Snowflake — and a
-correction to the reference dataset it started from.
+The deployed product is a Snowflake-native command center built on the real
+PIADE packaging dataset. It connects observed production and stop events to
+deterministic, clearly labelled synthetic maintenance and ERP workflows.
 
 ---
 
-## The headline
+## Current deployed product
+
+One real packaging site, five production lines, and one traceable decision
+path:
+
+```text
+Observed PIADE OT
+  → derived OEE / stop / idle incident
+  → synthetic work order and production order
+  → synthetic part and inventory position
+  → accountable action, operational exposure and Cortex explanation
+```
+
+The command center deliberately excludes CoMoPI from its live narrative.
+CoMoPI is a different factory with no join key, no production counts and no
+validated predictive signal. Joining the datasets would manufacture a factory
+that never existed.
+
+Current measured results:
+
+- canonical weighted site OEE: **46.78%**;
+- blind-period heavy-stop AUC: **0.6883**;
+- top-decile precision: **76.43%**, versus **62.42%** for the matched
+  persistence baseline;
+- exactly 10% of blind-period machine-hours flagged;
+- 2,367 synthetic production orders anchored to real machine/day OEE rows;
+- 142,233 observed stop events linked into the digital thread;
+- zero lineage, origin, deterministic-draw or cost-reconciliation mismatches.
+
+PIADE does not contain vibration, temperature or RPM sensors. The model is a
+one-hour operational stop-risk ranking, not remaining useful life or
+physics-based failure prediction. Work orders, ERP records, parts, inventory
+and euros are scenarios—not observed business records.
+
+Full architecture, contracts and non-claims:
+[`docs/PIADE-COMMAND-CENTER.md`](docs/PIADE-COMMAND-CENTER.md).
+
+---
+
+## Original causality finding — separate synthetic exhibit
 
 We began from Snowflake's official predictive-maintenance quickstart, trained a real
 classifier to replace its hardcoded "failure probability" formula, and the model scored
@@ -39,7 +79,11 @@ a cause.
 
 ---
 
-## What this is worth in money
+## Original synthetic exhibit — cost-threshold result
+
+The dollars in this section belong only to `SNOWCORE_INDUSTRIES`, the original
+fully synthetic quickstart exhibit. They are not PIADE costs or claimed
+savings from the deployed command center.
 
 A model is only useful if acting on it beats the alternatives. We derived both costs from
 the warehouse's own maintenance records — parts, labour **and** lost production on both
@@ -68,7 +112,24 @@ thing.
 
 ---
 
-## Architecture
+## Current architecture
+
+```text
+PIADE CC BY 4.0
+  ├─ BRONZE  published interval + hourly files
+  ├─ SILVER  typed production intervals and machine dimensions
+  ├─ GOLD    hour-split weighted OEE, stop events and loss ownership
+  ├─ ML      299-feature ExtraTrees model trained in Snowpark Python
+  ├─ ERP     synthetic production/work orders, parts, inventory and lineage
+  ├─ AI      semantic view + bounded Cortex narrative over aggregate facts
+  └─ APP     Streamlit in Snowflake operations console
+```
+
+Everything executes inside Snowflake. The application reads
+`SNOWCORE_REAL`; the earlier synthetic quickstart remains separately in
+`SNOWCORE_INDUSTRIES` as a reproducible causality exhibit.
+
+### Original quickstart architecture
 
 ```
 Synthetic generator (SQL)  ─┐
@@ -142,24 +203,27 @@ auditable.
 
 ---
 
-## Reproducing this
+## Reproducing the deployed PIADE product
 
 **Prerequisites:** a Snowflake account with Cortex enabled, `ACCOUNTADMIN`, and
 [CoCo CLI](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli).
 
-```bash
-# 1. Build the warehouse, data, semantic view and agent  (~10 min)
-#    Run in a Snowsight worksheet, or:  cortex exec "run sql/01_setup_snowcore.sql"
+Run the real-data path in dependency order:
 
-# 2. Train the model and evaluate on a chronological holdout
-#    sql/02_ml_model.sql
+1. `sql/10_real_setup.sql`
+2. `sql/11_bronze_load.sql`
+3. `sql/12_silver.sql`
+4. `sql/13_gold_oee.sql`
+5. `sql/16_it_synthetic.sql`
+6. `sql/15_plant_b_risk.sql`
+7. `sql/18_piade_erp.sql`
+8. `sql/17_semantic_cortex.sql`
+9. upload `streamlit/app.py` to the existing Streamlit stage
 
-# 3. Derive costs and select the operating threshold
-#    sql/03_cost_analysis.sql
+The execution/audit trail is under `docs/cortex-audit/`; prompt 024 is the
+end-to-end deployment and verification record.
 
-# 4. Deploy the app  (warehouse runtime — works on trial accounts)
-#    see streamlit/ and the CREATE STREAMLIT in sql/04_deploy_app.sql
-```
+The separate original quickstart exhibit is reproduced with `sql/01`–`04`.
 
 > **Trial accounts:** this build deliberately avoids Snowpark Container Services and
 > external access integrations, which trials reject. Streamlit runs on the **warehouse
@@ -172,9 +236,11 @@ auditable.
 
 | Dataset | Origin | Licence |
 |---|---|---|
-| All telemetry, maintenance, production and financial data | **Synthetic — generated in-database by SQL.** No external data was downloaded or imported. | Derived from the MIT-licensed Snowflake-Labs quickstart; our modifications released under MIT |
+| PIADE production intervals and hourly aggregates | Real published packaging operations, DOI `10.5281/zenodo.7071747` | CC BY 4.0 |
+| Live command-center work orders, production orders, technicians, materials, inventory and euros | Deterministic synthetic scenario records anchored to PIADE events | Project code MIT; records are generated demonstrations |
+| Original `SNOWCORE_INDUSTRIES` telemetry, maintenance, production and financial exhibit | Synthetic, generated in-database from the Snowflake-Labs quickstart | Upstream MIT; modifications MIT |
 
-No real, proprietary, personal or customer data is used anywhere in this project.
+No proprietary, personal or customer data is used.
 
 ---
 
