@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SnowCore PdM — Dataset and App Report</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b2330; --dim:#5d6878; --line:#e3e7ed;
+    --blue:#1f8fc4; --teal:#1f9e7a; --amber:#d8911c; --red:#d4483f; --slate:#7b8797;
+    --obs:#1f9e7a; --der:#1f8fc4; --syn:#8a5cc7;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Inter,Helvetica,Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:1040px;margin:0 auto;padding:48px 28px 80px;}
+  h1{font-size:2rem;margin:0 0 6px;letter-spacing:-.01em;}
+  h2{font-size:1.35rem;margin:0 0 6px;}
+  h3{font-size:1.02rem;margin:22px 0 8px;}
+  p{margin:6px 0 12px;}
+  .sub{color:var(--dim);margin:0 0 30px;}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 30px;margin:0 0 26px;}
+  .num{display:inline-block;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;
+    text-align:center;line-height:28px;font-size:.8rem;margin-right:10px;vertical-align:2px;}
+  .lead{font-size:1.05rem;}
+  .muted{color:var(--dim);font-size:.9rem;}
+  table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:.92rem;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--dim);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;}
+  code{background:#eef1f5;padding:1px 5px;border-radius:4px;font-size:.86em;}
+  .grid{display:grid;gap:14px;}
+  .g2{grid-template-columns:1fr 1fr;} .g3{grid-template-columns:repeat(3,1fr);} .g4{grid-template-columns:repeat(4,1fr);}
+  .tile{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fbfcfd;}
+  .tile .big{font-size:1.6rem;font-weight:700;}
+  .tile .lbl{color:var(--dim);font-size:.84rem;}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;letter-spacing:.03em;}
+  .b-obs{background:var(--obs);} .b-der{background:var(--der);} .b-syn{background:var(--syn);}
+  .b-done{background:var(--teal);} .b-part{background:var(--amber);} .b-no{background:var(--red);}
+  /* bar charts */
+  .bars{margin:10px 0;}
+  .bar-row{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:10px;margin:7px 0;font-size:.9rem;}
+  .bar-track{background:#eef1f5;border-radius:6px;height:22px;overflow:hidden;display:flex;}
+  .bar{height:100%;}
+  .bar-val{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.84rem;color:var(--dim);margin:6px 0 2px;}
+  .legend span::before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c);}
+  /* flow diagram */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:14px 0;}
+  .step{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:12px;background:#fbfcfd;font-size:.86rem;}
+  .step b{display:block;margin-bottom:4px;font-size:.9rem;}
+  .arrow{display:flex;align-items:center;padding:0 6px;color:var(--slate);font-size:1.2rem;}
+  .callout{border-left:4px solid var(--amber);background:#fff8ec;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .callout.good{border-color:var(--teal);background:#edf8f4;}
+  .callout.bad{border-color:var(--red);background:#fdf0ef;}
+  iframe{width:100%;height:1780px;border:1px solid var(--line);border-radius:12px;background:#0a0e14;}
+  .state{display:grid;grid-template-columns:170px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .state:last-child{border-bottom:none;}
+  .pill{font-weight:700;}
+  @media (max-width:760px){ .g2,.g3,.g4{grid-template-columns:1fr;} .bar-row{grid-template-columns:100px 1fr 70px;} .flow{flex-direction:column;} .arrow{transform:rotate(90deg);justify-content:center;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>SnowCore PdM — Dataset and App Report</h1>
+<p class="sub">Snowflake CoCo CLI Hackathon 2026 · Problem Statement 3 · Predictive Maintenance &amp; OEE Command Center.
+All numbers below were measured in Snowflake on 26 September 2026.</p>
+
+<!-- 1 -->
+<section>
+  <h2><span class="num">1</span>Problem statement and objectives</h2>
+  <p class="lead">Factories lose money when machines stop unexpectedly. The machine data (OT) and the business
+  records (IT: work orders, parts, costs) live in separate systems, so nobody can see the whole story of a stop.</p>
+  <h3>What we set out to do</h3>
+  <div class="grid g3">
+    <div class="tile"><b>1. Join OT and IT</b><div class="muted">Put machine events and business records in one place, linked to each other.</div></div>
+    <div class="tile"><b>2. Measure OEE honestly</b><div class="muted">Availability × Performance × Quality, calculated from real counts.</div></div>
+    <div class="tile"><b>3. Warn before a stop</b><div class="muted">Rank which line is most likely to stop in the next hour.</div></div>
+    <div class="tile"><b>4. Turn warnings into work</b><div class="muted">Create a work order when risk is high.</div></div>
+    <div class="tile"><b>5. Explain in plain English</b><div class="muted">Answer questions about causes without inventing facts.</div></div>
+    <div class="tile"><b>6. One command screen</b><div class="muted">Rank lines, show the loss, name who should act.</div></div>
+  </div>
+  <p class="muted">Section 13 scores each of these honestly against what was built.</p>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2><span class="num">2</span>Our first idea (original visual, unchanged)</h2>
+  <p>This was the plan before we looked at real data. It is shown exactly as we drew it.</p>
+  <iframe src="problem-solution.html" title="Original problem and solution visual" loading="lazy"></iframe>
+  <p class="muted">Embedded from <code>docs/problem-solution.html</code>. Keep both files in the same folder when sharing.</p>
+</section>
+
+<!-- 3 -->
+<section>
+  <h2><span class="num">3</span>What changed once we looked at the data</h2>
+  <div class="flow">
+    <div class="step"><b>Plan</b>Use Snowflake's sample factory data with vibration, temperature and RPM.</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>Problem</b>In that sample, failures were a 2% random coin flip, unrelated to any sensor. No model can predict a coin flip.</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>Search</b>No public dataset has real sensors <i>and</i> the maintenance tickets that followed.</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>Decision</b>Use a real factory's machine data (PIADE) and build the business records around real events, clearly labelled.</div>
+  </div>
+  <div class="callout bad"><b>Trade-off we accepted:</b> PIADE has no vibration, temperature or RPM. The sensor charts in the original
+  visual cannot be shown with real data, so the app does not show them.</div>
+</section>
+
+<!-- 4 -->
+<section>
+  <h2><span class="num">4</span>The dataset: PIADE, and why we chose it</h2>
+  <p><b>PIADE</b> is published data from a real packaging factory: five production lines, recorded event by event for two years.
+  Public licence CC BY 4.0, DOI <code>10.5281/zenodo.7071747</code>.</p>
+  <div class="grid g4">
+    <div class="tile"><div class="big">5</div><div class="lbl">production lines (s_1 to s_5)</div></div>
+    <div class="tile"><div class="big">2 years</div><div class="lbl">1 Jan 2020 to 1 Jan 2022</div></div>
+    <div class="tile"><div class="big">429,394</div><div class="lbl">machine-state intervals</div></div>
+    <div class="tile"><div class="big">23,376</div><div class="lbl">hourly summary rows</div></div>
+  </div>
+  <h3>Why this one</h3>
+  <table>
+    <tr><th>Reason</th><th>Why it matters</th></tr>
+    <tr><td>It is real</td><td>Stops, alarms and package counts happened in a real factory. Nothing to argue about.</td></tr>
+    <tr><td>It records <i>why</i> a line stopped</td><td>Each interval says running, slow, waiting, broken down or planned stop, with an alarm code for faults.</td></tr>
+    <tr><td>It counts packages in and out</td><td>OEE can be calculated from real numbers instead of made-up percentages.</td></tr>
+    <tr><td>Enough history</td><td>Two years is enough to test warnings on months the model never saw.</td></tr>
+    <tr><td>Open licence</td><td>Allowed for a public hackathon repository.</td></tr>
+  </table>
+  <h3>What it does not have</h3>
+  <p>No vibration, temperature or RPM sensors. No work orders, technicians, parts or costs. Alarm codes are anonymised
+  (<code>A_065</code>, not "bearing failure"). No product, customer or price.</p>
+  <p class="muted">We also explored a second real dataset (CoMoPI). It describes a different factory with no shared key, so joining
+  the two would invent a factory that never existed. We dropped it from the product.</p>
+</section>
+
+<!-- 5 -->
+<section>
+  <h2><span class="num">5</span>What columns it has</h2>
+  <p>PIADE comes as two files.</p>
+  <h3>File 1 — intervals (one row every time the machine changes state), 10 columns</h3>
+  <table>
+    <tr><th>Column</th><th>Plain meaning</th></tr>
+    <tr><td><code>equipment_ID</code></td><td>Which line (s_1 … s_5)</td></tr>
+    <tr><td><code>interval_start</code>, <code>start</code>, <code>end</code></td><td>When this state began and ended</td></tr>
+    <tr><td><code>elapsed</code></td><td>How long it lasted (milliseconds)</td></tr>
+    <tr><td><code>type</code></td><td>The machine's state: running, slow, waiting, broken down, planned stop</td></tr>
+    <tr><td><code>alarm</code></td><td>Fault code the machine raised (only meaningful for breakdowns)</td></tr>
+    <tr><td><code>pi</code>, <code>po</code></td><td>Running counters of packages going in and coming out</td></tr>
+    <tr><td><code>speed</code></td><td>Packages per hour at that moment</td></tr>
+  </table>
+  <h3>File 2 — hourly summary (one row per line per hour), 164 columns</h3>
+  <div class="grid g4">
+    <div class="tile"><div class="big">2</div><div class="lbl">line and hour</div></div>
+    <div class="tile"><div class="big">1 + 1</div><div class="lbl">packages made, number of state changes</div></div>
+    <div class="tile"><div class="big">5 + 25</div><div class="lbl">% of the hour in each state, and counts of each state-to-state switch</div></div>
+    <div class="tile"><div class="big">130</div><div class="lbl">how many times each alarm code fired that hour</div></div>
+  </div>
+  <p class="muted">Every loaded row keeps its source file name and the label <span class="badge b-obs">OBSERVED</span>.
+  Row counts are checked against the published files on every load.</p>
+</section>
+
+<!-- 6 -->
+<section>
+  <h2><span class="num">6</span>What is normal and what is abnormal</h2>
+  <p>Every minute of the two years falls into one of five states. This is how the 44,131 recorded hours split:</p>
+  <div class="bars">
+    <div class="bar-row"><span>Running</span><div class="bar-track"><div class="bar" style="width:43.9%;background:var(--teal)"></div></div><span class="bar-val">19,390 h · 44%</span></div>
+    <div class="bar-row"><span>Waiting (idle)</span><div class="bar-track"><div class="bar" style="width:23.3%;background:var(--amber)"></div></div><span class="bar-val">10,266 h · 23%</span></div>
+    <div class="bar-row"><span>Planned stop</span><div class="bar-track"><div class="bar" style="width:14.8%;background:var(--slate)"></div></div><span class="bar-val">6,534 h · 15%</span></div>
+    <div class="bar-row"><span>Running slow</span><div class="bar-track"><div class="bar" style="width:10.9%;background:var(--blue)"></div></div><span class="bar-val">4,793 h · 11%</span></div>
+    <div class="bar-row"><span>Broken down</span><div class="bar-track"><div class="bar" style="width:7.1%;background:var(--red)"></div></div><span class="bar-val">3,147 h · 7%</span></div>
+  </div>
+
+  <div class="state"><span class="pill" style="color:var(--teal)">Normal · Running</span><span>Making packages at a good speed.</span></div>
+  <div class="state"><span class="pill" style="color:var(--slate)">Normal · Planned stop</span><span>Scheduled pause (cleaning, changeover). Not counted against the line.</span></div>
+  <div class="state"><span class="pill" style="color:var(--blue)">Mild · Running slow</span><span>Still making packages, but below its best speed. Lowers Performance.</span></div>
+  <div class="state"><span class="pill" style="color:var(--red)">Abnormal · Broken down</span><span>The machine raised a fault alarm. <b>This is a maintenance problem.</b> 92,084 events, typically under a minute; 90% end within 4 minutes.</span></div>
+  <div class="state"><span class="pill" style="color:var(--amber)">Abnormal · Waiting</span><span>Machine is fine but not producing, with no fault alarm. <b>This is a planning or supply problem.</b> 50,149 events; 10% last longer than 17 minutes.</span></div>
+
+  <div class="callout"><b>The biggest finding in the data:</b> the lines lose more than three times as much time <b>waiting</b> (10,266 h)
+  as <b>broken down</b> (3,147 h). Every breakdown in the source carries an alarm; no waiting period does.
+  Sending the maintenance team after "downtime" as one number would point them at a problem that is mostly not theirs.</div>
+
+  <h3>What counts as an "abnormal hour" for the warning</h3>
+  <p>The warning asks one question: <b>will more than 10% of the next hour be lost to breakdowns?</b>
+  About 4 in 10 hours meet that bar, so it is common, not rare.</p>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2><span class="num">7</span>How the data covers OT and IT</h2>
+  <table>
+    <tr><th>Layer</th><th>What</th><th>Where it comes from</th><th>Label</th></tr>
+    <tr><td><b>OT</b> machine events</td><td>States, stops, alarms, speed</td><td>PIADE, as published</td><td><span class="badge b-obs">OBSERVED</span></td></tr>
+    <tr><td><b>OT</b> production counts</td><td>Packages in and out</td><td>PIADE, as published</td><td><span class="badge b-obs">OBSERVED</span></td></tr>
+    <tr><td><b>OT</b> KPIs</td><td>OEE, incidents, hourly features, risk score</td><td>Calculated only from PIADE</td><td><span class="badge b-der">DERIVED</span></td></tr>
+    <tr><td><b>IT</b> maintenance</td><td>Work orders, technicians, labour, parts</td><td>Built by us on real breakdowns</td><td><span class="badge b-syn">SYNTHETIC IT</span></td></tr>
+    <tr><td><b>IT</b> ERP</td><td>Production orders, materials, stock, euros</td><td>Built by us on real production days</td><td><span class="badge b-syn">SYNTHETIC ERP</span></td></tr>
+  </table>
+  <p>The label travels with every row into the app, so a screen never shows an invented euro as if it were real.</p>
+</section>
+
+<!-- 8 -->
+<section>
+  <h2><span class="num">8</span>What we added, and how (A to Z)</h2>
+  <h3>Five rules the generator follows</h3>
+  <div class="grid g2">
+    <div class="tile"><b>1. Never invent an event.</b><div class="muted">Every business record sits on a real stop or a real production day. No extra failures, no extra packages.</div></div>
+    <div class="tile"><b>2. Same input, same output.</b><div class="muted">No random numbers. Variation comes from a fixed hash of each record's ID, so reruns give identical rows.</div></div>
+    <div class="tile"><b>3. Every guess is written down.</b><div class="muted">Each constant is stored in an assumptions table and marked "measured" or "chosen by us".</div></div>
+    <div class="tile"><b>4. Every row is labelled.</b><div class="muted">Observed, derived, synthetic IT or synthetic ERP.</div></div>
+    <div class="tile"><b>5. Checked after every build.</b><div class="muted">Counts, orphans, cost totals and determinism are re-checked; all must be zero-difference.</div></div>
+  </div>
+
+  <h3>The chain: one real stop, followed all the way to a decision</h3>
+  <div class="flow">
+    <div class="step"><span class="badge b-obs">OBSERVED</span><b>Stop</b>Line s_2 breaks down with alarm A_065</div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="badge b-syn">ERP</span><b>Production order</b>That line's order for that day</div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="badge b-syn">IT</span><b>Work order</b>Only if breakdown ≥ 10 min</div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="badge b-syn">ERP</span><b>Part used</b>Only if the job needed one</div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="badge b-syn">ERP</span><b>Stock level</b>Healthy, reorder or out</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>Action</b>Ranked, with an owner</div>
+  </div>
+
+  <h3>Each thing we built</h3>
+  <table>
+    <tr><th>Record</th><th>How many</th><th>Built from</th><th>How</th></tr>
+    <tr><td>Work orders</td><td>2,556</td><td>Real breakdowns of 10+ minutes</td><td>Response time 8–35 min; repair time = 75% of the real stop; labour €45/h; parts only sometimes, more likely on long stops (max €850). Priority by stop length.</td></tr>
+    <tr><td>Waiting incidents</td><td>3,592</td><td>Real waiting periods of 30+ minutes</td><td>No technician, no parts. Owner is Planning. Cost is only the packages not made.</td></tr>
+    <tr><td>Technicians</td><td>6</td><td>—</td><td>Invented names, shifts and skills. No real person implied.</td></tr>
+    <tr><td>Production orders</td><td>2,367</td><td>Each real line-day</td><td>Target = planned hours × that line's best real speed. Actual = real packages made.</td></tr>
+    <tr><td>Materials</td><td>28</td><td>Alarm codes whose jobs used parts</td><td>One generic "service kit" per code. We do not claim what the part is.</td></tr>
+    <tr><td>Parts used</td><td>311</td><td>Work orders with a parts cost</td><td>Quantity 1–3; totals reconcile to the work order to the cent.</td></tr>
+    <tr><td>Stock levels</td><td>28</td><td>Real usage of each kit</td><td>Reorder point from usage over 14 days; lead time 2–14 days.</td></tr>
+    <tr><td>Event links</td><td>142,233</td><td>Every real stop</td><td>Ties each stop to its day's production order and, if any, its work order.</td></tr>
+  </table>
+
+  <div class="grid g2">
+    <div>
+      <h3>Work-order priority mix</h3>
+      <div class="bars">
+        <div class="bar-row"><span>P1 · 4 h+</span><div class="bar-track"><div class="bar" style="width:0.9%;background:var(--red)"></div></div><span class="bar-val">21</span></div>
+        <div class="bar-row"><span>P2 · 2–4 h</span><div class="bar-track"><div class="bar" style="width:1%;background:var(--amber)"></div></div><span class="bar-val">23</span></div>
+        <div class="bar-row"><span>P3 · 1–2 h</span><div class="bar-track"><div class="bar" style="width:2.8%;background:var(--blue)"></div></div><span class="bar-val">68</span></div>
+        <div class="bar-row"><span>P4 · under 1 h</span><div class="bar-track"><div class="bar" style="width:100%;background:var(--slate)"></div></div><span class="bar-val">2,444</span></div>
+      </div>
+      <p class="muted">Most breakdowns are short. That matches the real data, not a choice we made.</p>
+    </div>
+    <div>
+      <h3>Spare-part stock position</h3>
+      <div class="bars">
+        <div class="bar-row"><span>Healthy</span><div class="bar-track"><div class="bar" style="width:46%;background:var(--teal)"></div></div><span class="bar-val">13</span></div>
+        <div class="bar-row"><span>Reorder</span><div class="bar-track"><div class="bar" style="width:39%;background:var(--amber)"></div></div><span class="bar-val">11</span></div>
+        <div class="bar-row"><span>Stock-out</span><div class="bar-track"><div class="bar" style="width:14%;background:var(--red)"></div></div><span class="bar-val">4</span></div>
+      </div>
+      <p class="muted">Stock is a scenario. It shows the workflow, not a real storeroom.</p>
+    </div>
+  </div>
+
+  <h3>Which numbers are real and which we chose</h3>
+  <table>
+    <tr><th>Measured from the data</th><th>Chosen by us (attack these first)</th></tr>
+    <tr><td>10-minute work-order cut-off (from a sweep: 0.7 jobs per line per day)<br>
+      30-minute waiting cut-off<br>Each line's best real speed<br>Stop durations and package counts</td>
+      <td>Labour €45/hour · response 8–35 min · 75% hands-on time<br>
+      Parts max €850 and how often parts are needed<br>Margin €0.18 per package<br>Lead times 2–14 days · reorder cover 14 days</td></tr>
+  </table>
+</section>
+
+<!-- 9 -->
+<section>
+  <h2><span class="num">9</span>What the data shows</h2>
+  <div class="grid g2">
+    <div>
+      <h3>OEE by line (site 46.8%)</h3>
+      <div class="bars">
+        <div class="bar-row"><span>s_5</span><div class="bar-track"><div class="bar" style="width:57.1%;background:var(--teal)"></div></div><span class="bar-val">57.1%</span></div>
+        <div class="bar-row"><span>s_1</span><div class="bar-track"><div class="bar" style="width:56.4%;background:var(--teal)"></div></div><span class="bar-val">56.4%</span></div>
+        <div class="bar-row"><span>s_4</span><div class="bar-track"><div class="bar" style="width:37.5%;background:var(--amber)"></div></div><span class="bar-val">37.5%</span></div>
+        <div class="bar-row"><span>s_3</span><div class="bar-track"><div class="bar" style="width:36.2%;background:var(--amber)"></div></div><span class="bar-val">36.2%</span></div>
+        <div class="bar-row"><span>s_2</span><div class="bar-track"><div class="bar" style="width:28.9%;background:var(--red)"></div></div><span class="bar-val">28.9%</span></div>
+      </div>
+      <p class="muted">Site: Availability 64.3% × Performance 72.9% × Quality 99.7%. Availability is the weak part.</p>
+    </div>
+    <div>
+      <h3>Lost hours by line</h3>
+      <div class="legend"><span style="--c:var(--red)">Broken down</span><span style="--c:var(--amber)">Waiting</span></div>
+      <div class="bars">
+        <div class="bar-row"><span>s_3</span><div class="bar-track"><div class="bar" style="width:13.3%;background:var(--red)"></div><div class="bar" style="width:84.8%;background:var(--amber)"></div></div><span class="bar-val">3,433 h</span></div>
+        <div class="bar-row"><span>s_5</span><div class="bar-track"><div class="bar" style="width:10.2%;background:var(--red)"></div><div class="bar" style="width:75.1%;background:var(--amber)"></div></div><span class="bar-val">2,983 h</span></div>
+        <div class="bar-row"><span>s_1</span><div class="bar-track"><div class="bar" style="width:39.8%;background:var(--red)"></div><div class="bar" style="width:36.2%;background:var(--amber)"></div></div><span class="bar-val">2,661 h</span></div>
+        <div class="bar-row"><span>s_2</span><div class="bar-track"><div class="bar" style="width:16.4%;background:var(--red)"></div><div class="bar" style="width:53.4%;background:var(--amber)"></div></div><span class="bar-val">2,444 h</span></div>
+        <div class="bar-row"><span>s_4</span><div class="bar-track"><div class="bar" style="width:10.2%;background:var(--red)"></div><div class="bar" style="width:43.9%;background:var(--amber)"></div></div><span class="bar-val">1,893 h</span></div>
+      </div>
+      <p class="muted">Only s_1 loses more time to breakdowns than to waiting.</p>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div>
+      <h3>Alarm codes behind the longest breakdowns</h3>
+      <div class="bars">
+        <div class="bar-row"><span>A_065</span><div class="bar-track"><div class="bar" style="width:97.9%;background:var(--red)"></div></div><span class="bar-val">313 h</span></div>
+        <div class="bar-row"><span>A_006</span><div class="bar-track"><div class="bar" style="width:90.4%;background:var(--red)"></div></div><span class="bar-val">289 h</span></div>
+        <div class="bar-row"><span>A_001</span><div class="bar-track"><div class="bar" style="width:57.4%;background:var(--red)"></div></div><span class="bar-val">184 h</span></div>
+        <div class="bar-row"><span>A_101</span><div class="bar-track"><div class="bar" style="width:24.8%;background:var(--red)"></div></div><span class="bar-val">80 h</span></div>
+        <div class="bar-row"><span>A_066</span><div class="bar-track"><div class="bar" style="width:16.4%;background:var(--red)"></div></div><span class="bar-val">53 h</span></div>
+      </div>
+      <p class="muted">Breakdowns of 10+ minutes. Three codes cause most of the long breakdown time.</p>
+    </div>
+    <div>
+      <h3>What each loss costs (scenario euros)</h3>
+      <div class="bars">
+        <div class="bar-row"><span>Waiting</span><div class="bar-track"><div class="bar" style="width:100%;background:var(--amber)"></div></div><span class="bar-val">€8.37M</span></div>
+        <div class="bar-row"><span>Breakdowns</span><div class="bar-track"><div class="bar" style="width:14.2%;background:var(--red)"></div></div><span class="bar-val">€1.19M</span></div>
+      </div>
+      <p class="muted">Lost packages are real counts; the €0.18 margin per package is our assumption, so treat the euros as a scenario.
+      Breakdowns: €36k labour + €86k parts + €1.07M packages not made.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section>
+  <h2><span class="num">10</span>The Streamlit app</h2>
+  <p>Runs inside Snowflake. Seven pages; each answers one question.</p>
+  <div class="flow">
+    <div class="step"><b>1 · Command Center</b>Where are we losing, and who should act?</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>2 · Fleet Risk</b>Which line may stop next hour?</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>3 · OEE Drill-Down</b>Why is OEE low?</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>4 · Work &amp; Materials</b>What was fixed, do we have parts?</div>
+  </div>
+  <div class="flow">
+    <div class="step"><b>5 · Financial Risk</b>What does it cost, and whose budget?</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>6 · Analyst</b>Ask in plain English</div>
+    <div class="arrow">→</div>
+    <div class="step"><b>7 · Research Lab</b>Can a better model be found safely?</div>
+  </div>
+  <table>
+    <tr><th>Page</th><th>What you see</th><th>Data</th></tr>
+    <tr><td>Command Center</td><td>Four headline numbers (OEE 46.8%, lines on watch, €21.4M scenario exposure, open actions); one bar splitting planned hours into productive, slow, waiting, fault; lines ranked by risk; action list with an owner (Maintenance, Planning or Supply Chain).</td><td><span class="badge b-der">DERIVED</span> <span class="badge b-syn">SYNTHETIC</span></td></tr>
+    <tr><td>Fleet Risk</td><td>Next-hour risk per line, whether the warning beats a simple rule for that line, recent history, what drives the score. <b>New:</b> the 4-hour breakdown warning compared with three simple rules.</td><td><span class="badge b-der">DERIVED</span></td></tr>
+    <tr><td>OEE Drill-Down</td><td>Availability, Performance and Quality; weekly trend; line comparison; top fault codes. <b>New:</b> root-cause card per line with an "Explain with Cortex" button.</td><td><span class="badge b-der">DERIVED</span></td></tr>
+    <tr><td>Work &amp; Materials</td><td>Work orders; draft a planned job (kept in the browser only); parts stock; click one stop and follow its full chain. <b>New:</b> work orders raised automatically from the 4-hour warning, each checked against what really happened.</td><td><span class="badge b-syn">SYNTHETIC</span></td></tr>
+    <tr><td>Financial Risk</td><td>Scenario cost split into waiting (Planning) and breakdowns (Maintenance).</td><td><span class="badge b-syn">SYNTHETIC</span></td></tr>
+    <tr><td>Analyst</td><td>Operational questions answered only from supplied facts. "What if" mode does the maths in the app first; the AI only explains those numbers.</td><td>Cortex AI</td></tr>
+    <tr><td>Research Lab</td><td>Log of 25 model experiments, best-so-far chart, and the four checks a new model must pass.</td><td><span class="badge b-der">DERIVED</span></td></tr>
+  </table>
+  <p class="muted">Every page ends with a note saying which numbers are real and which are scenario.</p>
+</section>
+
+<!-- 11 -->
+<section>
+  <h2><span class="num">11</span>What we did differently</h2>
+  <p>Compared with Snowflake's own predictive-maintenance sample (the one our team started from):</p>
+  <table>
+    <tr><th>Topic</th><th>Snowflake sample</th><th>Ours</th></tr>
+    <tr><td>Machine data</td><td>Generated by a script</td><td>Real factory, two years</td></tr>
+    <tr><td>Failures</td><td>A 2% random draw, unrelated to sensors</td><td>Real recorded breakdowns</td></tr>
+    <tr><td>OEE Performance</td><td>A random number between 80 and 98</td><td>Packages made ÷ what the line's best real speed allows</td></tr>
+    <tr><td>Failure probability</td><td>A formula on a health score</td><td>A trained warning, tested on months it never saw, compared with a simple rule</td></tr>
+    <tr><td>Waiting vs broken</td><td>Not distinguished</td><td>Separated, and sent to different owners</td></tr>
+    <tr><td>Business records</td><td>Generated freely</td><td>Anchored to real events, repeatable, labelled, assumptions listed</td></tr>
+    <tr><td>AI answers</td><td>Semantic layer described the data as finance</td><td>AI only narrates numbers the app already calculated</td></tr>
+  </table>
+</section>
+
+<!-- 12 -->
+<section>
+  <h2><span class="num">12</span>Closing the gaps: what we built, and how well it works</h2>
+  <p>Three promises were only partly met or not met. We built all three and tested each one on December 2021,
+  a month the models never saw during training.</p>
+
+  <h3>A · A breakdown warning for the next 4 hours</h3>
+  <p><b>Question:</b> at the end of each hour, will this line have a breakdown of 10+ minutes (the same rule that
+  creates a work order) in the next 4 hours? We used the same 299 inputs and model settings as the next-hour
+  warning and changed nothing after looking at December.</p>
+  <p><b>The fair test:</b> a warning only has value if it beats simple rules a planner could apply without any
+  model. We compared it against three:</p>
+  <ul>
+    <li><b>Downtime continues:</b> the line that is down now stays down.</li>
+    <li><b>Recent breakdowns:</b> lines that broke down in the last 24 hours break again.</li>
+    <li><b>Worst line first:</b> always watch the lines that broke down most in the past.</li>
+  </ul>
+  <h3>Of the 10% of hours each method flags, how many really had a breakdown?</h3>
+  <div class="bars">
+    <div class="bar-row"><span>4-hour warning</span><div class="bar-track"><div class="bar" style="width:62.7%;background:var(--amber)"></div></div><span class="bar-val">62.7%</span></div>
+    <div class="bar-row"><span>Worst line first</span><div class="bar-track"><div class="bar" style="width:58.2%;background:var(--slate)"></div></div><span class="bar-val">58.2%</span></div>
+    <div class="bar-row"><span>Recent breakdowns</span><div class="bar-track"><div class="bar" style="width:41.0%;background:var(--blue)"></div></div><span class="bar-val">41.0%</span></div>
+    <div class="bar-row"><span>Downtime continues</span><div class="bar-track"><div class="bar" style="width:38.1%;background:#8fa9c9"></div></div><span class="bar-val">38.1%</span></div>
+    <div class="bar-row"><span>Any random hour</span><div class="bar-track"><div class="bar" style="width:25%;background:#cfd6de"></div></div><span class="bar-val">25.0%</span></div>
+  </div>
+  <p class="muted">1,340 December hours, 134 flagged per method.</p>
+  <div class="callout bad"><b>Honest verdict.</b> Across the whole site the warning is 4.5 points better than
+  "worst line first", which is within the noise for 134 flagged hours. Inside any single line it does
+  <b>not</b> beat the best simple rule: it ties on s_1 and loses on s_2, s_3, s_4 and s_5. What it has learned is mostly
+  <i>which line</i> tends to break and <i>whether it broke recently</i>. With these data, a 4-hour
+  warning is not better than a well-chosen rule of thumb.</div>
+
+  <h3>B · A root-cause card for every line</h3>
+  <p>For every long breakdown we checked four things, using only the real machine log:
+  were there short stops with the same alarm in the hour before? Did the same alarm come back within 24 hours?
+  What time of day did it start? Did the line go back to running afterwards, or sit waiting?</p>
+  <table>
+    <tr><th>Line</th><th>Main alarm</th><th>Share of long-breakdown time</th><th>What stands out</th></tr>
+    <tr><td>s_1</td><td>A_065</td><td>64%</td><td>74% start after short stops with the same alarm; 71% return within 24 hours. A recurring fault that gives early signs.</td></tr>
+    <tr><td>s_2</td><td>A_001</td><td>53%</td><td>71% start between 06:00 and 14:00; after the repair the line <b>waits</b> 70% of the time instead of restarting.</td></tr>
+    <tr><td>s_3</td><td>A_006</td><td>88%</td><td>63% start between 14:00 and 22:00; the line waits after 67% of repairs.</td></tr>
+    <tr><td>s_4</td><td>A_006</td><td>50%</td><td>51% start between 14:00 and 22:00; median breakdown 31 minutes, about twice as long as the main alarm on any other line.</td></tr>
+    <tr><td>s_5</td><td>A_101</td><td>90%</td><td>71% start after short stops with the same alarm, so there is an early sign to act on.</td></tr>
+  </table>
+  <div class="callout"><b>Why it matters:</b> on s_2 and s_3 the lost time does not end with the repair: the line
+  sits waiting afterwards, which is a planning or staffing question, not a maintenance one. On s_1 and s_5,
+  short stops come before the long breakdown, which gives a window to intervene.<br>
+  <b>Limits:</b> alarm codes are anonymised, so we cannot name the part. The time bands are fixed 8-hour windows
+  in dataset time, not the plant's real shifts, and a high share in one band may simply reflect when the line
+  runs most. The Cortex "Explain" button only rewrites these numbers into sentences.</div>
+
+  <h3>C · Work orders raised automatically from the warning</h3>
+  <p>When an hour is in the top 10% of that line's warning scores, the system writes a <b>planned inspection</b>
+  work order. A long high-risk stretch produces one order, not dozens (8-hour cooldown). Each order carries its evidence:
+  the score, recent downtime, the alarm with most downtime in the last 4 hours, and whether that alarm's
+  service kit is in stock. Then we checked what really happened.</p>
+  <div class="grid g4">
+    <div class="tile"><div class="big">45</div><div class="lbl">orders raised in December</div></div>
+    <div class="tile"><div class="big">35.6%</div><div class="lbl">followed by a real breakdown within 4 h</div></div>
+    <div class="tile"><div class="big">28.2%</div><div class="lbl">same, for a random hour on the same lines</div></div>
+    <div class="tile"><div class="big">23%</div><div class="lbl">of December's 196 breakdowns happened while an order was open</div></div>
+  </div>
+  <h3>Breakdown followed within 4 hours: orders vs random hours</h3>
+  <div class="legend"><span style="--c:var(--amber)">Automatic orders</span><span style="--c:#cfd6de">Random hour</span></div>
+  <div class="bars">
+    <div class="bar-row"><span>s_1 (12 orders)</span><div class="bar-track"><div class="bar" style="width:50%;background:var(--amber)"></div></div><span class="bar-val">50%</span></div>
+    <div class="bar-row"><span></span><div class="bar-track"><div class="bar" style="width:31.5%;background:#cfd6de"></div></div><span class="bar-val">31%</span></div>
+    <div class="bar-row"><span>s_2 (8 orders)</span><div class="bar-track"><div class="bar" style="width:62.5%;background:var(--amber)"></div></div><span class="bar-val">63%</span></div>
+    <div class="bar-row"><span></span><div class="bar-track"><div class="bar" style="width:59%;background:#cfd6de"></div></div><span class="bar-val">59%</span></div>
+    <div class="bar-row"><span>s_3 (13 orders)</span><div class="bar-track"><div class="bar" style="width:23.1%;background:var(--amber)"></div></div><span class="bar-val">23%</span></div>
+    <div class="bar-row"><span></span><div class="bar-track"><div class="bar" style="width:20%;background:#cfd6de"></div></div><span class="bar-val">20%</span></div>
+    <div class="bar-row"><span>s_4 (6 orders)</span><div class="bar-track"><div class="bar" style="width:16.7%;background:var(--amber)"></div></div><span class="bar-val">17%</span></div>
+    <div class="bar-row"><span></span><div class="bar-track"><div class="bar" style="width:11.4%;background:#cfd6de"></div></div><span class="bar-val">11%</span></div>
+    <div class="bar-row"><span>s_5 (6 orders)</span><div class="bar-track"><div class="bar" style="width:16.7%;background:var(--amber)"></div></div><span class="bar-val">17%</span></div>
+    <div class="bar-row"><span></span><div class="bar-track"><div class="bar" style="width:14.9%;background:#cfd6de"></div></div><span class="bar-val">15%</span></div>
+  </div>
+  <div class="callout"><b>Reading it:</b> the orders are better than chance on every line, by 1.26× overall, but
+  the numbers are small (1 to 6 confirmed orders per line) and most orders are not followed by a breakdown.
+  A single site-wide cut-off looks better on paper (65% confirmed) only because it sends 27 of 31 orders to s_2,
+  a line that breaks down most hours anyway.<br>
+  <b>Limits:</b> this is a replay of December 2021, not a live system. The top-10% cut-off was taken from December's
+  own scores, which a live system could not do. Orders and kits are synthetic; the breakdowns they are checked
+  against are real.</div>
+</section>
+
+<!-- 13 -->
+<section>
+  <h2><span class="num">13</span>Scorecard: original promise vs what exists today</h2>
+  <table>
+    <tr><th>Original promise</th><th>Status</th><th>Plain explanation</th></tr>
+    <tr><td>Fuse OT and IT</td><td><span class="badge b-done">DONE</span></td><td>Every business record links back to a real stop or production day.</td></tr>
+    <tr><td>Raise OEE (real A × P × Q)</td><td><span class="badge b-done">DONE</span></td><td>Calculated from real totals, by line and by week.</td></tr>
+    <tr><td>Command center</td><td><span class="badge b-done">DONE</span></td><td>Seven pages, ranked lines, owned actions.</td></tr>
+    <tr><td>Predict failures</td><td><span class="badge b-part">BUILT, WEAK</span></td><td>Next-hour warning beats a simple rule. The new 4-hour breakdown warning works, but it is no better than a good rule of thumb within any single line. Not from vibration or temperature (the data has none).</td></tr>
+    <tr><td>Root cause in plain English</td><td><span class="badge b-done">DONE, WITHIN LIMITS</span></td><td>A card per line shows the main alarm, early signs, repeats, time of day and what happens after the repair; Cortex explains it. It cannot name parts, because the alarm codes are anonymised.</td></tr>
+    <tr><td>Automate work orders from risk</td><td><span class="badge b-done">DONE (REPLAY)</span></td><td>High-risk hours create planned inspection orders with evidence, checked against real breakdowns. They are better than chance (1.26×) but modest. This is a replay of December 2021, not a live feed.</td></tr>
+    <tr><td>Vibration, temperature, RPM</td><td><span class="badge b-no">NOT POSSIBLE</span></td><td>No real public dataset pairs these with maintenance records.</td></tr>
+  </table>
+</section>
+
+<!-- 14 -->
+<section>
+  <h2><span class="num">14</span>Limits, stated plainly</h2>
+  <ul>
+    <li>Not connected to a real ERP or maintenance system.</li>
+    <li>Work orders, technicians, parts, stock and euros are scenarios built on real events.</li>
+    <li>Warnings cover the next hour and the next 4 hours. They do not estimate remaining machine life.</li>
+    <li>The data ends on 1 January 2022; the app is not a live feed.</li>
+    <li>We cannot prove that acting on a warning would have prevented a stop.</li>
+  </ul>
+  <p><b>One-line description:</b> real factory machine data drives a fully traceable, clearly labelled maintenance and ERP workflow inside Snowflake.</p>
+</section>
+
+</div>
+</body>
+</html>

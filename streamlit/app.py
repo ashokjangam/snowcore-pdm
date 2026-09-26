@@ -407,6 +407,40 @@ COLUMN_META: dict[str, tuple[str, str]] = {
     "LOSS_BUCKET": ("Lever", "text"),
     "CAUSAL_CAVEAT": ("Caveat", "wide"),
     "METRIC_VALUE_NUM": ("Value", "score"),
+    "MODEL_AUC": ("AUC", "score"),
+    "MODEL_TOP_DECILE_PRECISION": ("Warning precision", "pct"),
+    "PERSISTENCE_TOP_DECILE_PRECISION": ("Downtime-continues rule", "pct"),
+    "RECENT_TOP_DECILE_PRECISION": ("Recent-breakdown rule", "pct"),
+    "LINE_RATE_TOP_DECILE_PRECISION": ("Worst-line rule", "pct"),
+    "BEST_BASELINE": ("Best simple rule", "text"),
+    "VERDICT": ("Verdict", "text"),
+    "LONG_BREAKDOWNS": ("Long breakdowns", "int"),
+    "SHARE_OF_LINE_BREAKDOWN_PCT": ("Share of line", "pct100"),
+    "MEDIAN_STOP_MIN": ("Median (min)", "minutes"),
+    "PRECURSOR_RATE": ("Short stops first", "pct"),
+    "REPEAT_24H_RATE": ("Repeats ≤ 24 h", "pct"),
+    "EARLY_SHARE": ("06–14", "pct"),
+    "LATE_SHARE": ("14–22", "pct"),
+    "NIGHT_SHARE": ("22–06", "pct"),
+    "BACK_TO_RUNNING_RATE": ("Back to running", "pct"),
+    "WAITING_AFTER_RATE": ("Waits after repair", "pct"),
+    "PATTERN": ("Pattern", "text"),
+    "RISK_WORK_ORDER_ID": ("Work order", "text"),
+    "ISSUED_AT": ("Issued", "text"),
+    "OPEN_UNTIL": ("Open until", "text"),
+    "EPISODE_FLAGGED_HOURS": ("Flagged hours", "int"),
+    "FAILURE_SCORE": ("Warning score", "score"),
+    "TOP_RECENT_ALARM": ("Recent alarm", "text"),
+    "OUTCOME": ("Outcome", "text"),
+    "LEAD_TIME_MIN": ("Lead time (min)", "minutes"),
+    "AUTO_WORK_ORDERS": ("Orders", "int"),
+    "CONFIRMED_WITHIN_4H": ("Confirmed", "int"),
+    "HIT_RATE": ("Hit rate", "pct"),
+    "RANDOM_HOUR_HIT_RATE": ("Random-hour rate", "pct"),
+    "LIFT_VS_RANDOM": ("Lift", "score"),
+    "BREAKDOWNS_IN_PERIOD": ("Breakdowns", "int"),
+    "BREAKDOWNS_COVERED": ("Covered", "int"),
+    "COVERAGE_RATE": ("Coverage", "pct"),
 }
 
 # Warehouse enums rendered as prose. Only these columns are relabelled, so
@@ -421,6 +455,13 @@ VALUE_LABELS = {
     "DERIVED_FROM_OBSERVED + SYNTHETIC_ERP": "Derived + synthetic",
     "SYNTHETIC_IT": "Synthetic IT",
     "SESSION_SCENARIO": "Session scenario",
+    "MODEL_BEATS_BEST_BASELINE": "Beats simple rules",
+    "MODEL_DOES_NOT_BEAT_BEST_BASELINE": "No edge vs simple rules",
+    "PERSISTENCE": "Downtime continues",
+    "RECENT": "Recent breakdowns",
+    "LINE_RATE": "Worst line first",
+    "BREAKDOWN_WITHIN_4H": "Breakdown followed",
+    "NO_BREAKDOWN_WITHIN_4H": "No breakdown",
 }
 RELABEL_COLUMNS = {
     "MODEL_VS_BASELINE_TRUST",
@@ -444,6 +485,10 @@ RELABEL_COLUMNS = {
     "CLAIM_CLASS",
     "TOPIC",
     "LEVER",
+    "VERDICT",
+    "BEST_BASELINE",
+    "PATTERN",
+    "OUTCOME",
 }
 
 
@@ -750,7 +795,101 @@ def fleet_risk() -> None:
             fig = px.bar(importance, x=col(importance, "IMPORTANCE"), y=col(importance, "FEATURE"), orientation="h")
             fig.update_traces(marker_color=BLUE)
             chart(style_fig(fig, height=220, legend=False))
+    failure_warning()
     origin_note(True, False, "No condition sensors or remaining-useful-life claims are used.")
+
+
+RULE_COLUMNS = {
+    "MODEL_TOP_DECILE_PRECISION": "4-hour warning",
+    "PERSISTENCE_TOP_DECILE_PRECISION": "Downtime continues",
+    "RECENT_TOP_DECILE_PRECISION": "Recent breakdowns",
+    "LINE_RATE_TOP_DECILE_PRECISION": "Worst line first",
+}
+
+
+def failure_warning() -> None:
+    section("4-hour breakdown warning · December 2021 holdout")
+    metrics = table("ML", "PLANT_B_FAILURE_METRICS")
+    if metrics.empty:
+        st.info("The 4-hour breakdown warning has not been trained in this account yet.")
+        return
+    scope = series(metrics, "SCOPE").astype(str)
+    fleet = metrics[scope.str.upper() == "FLEET"]
+    row = fleet.iloc[0] if not fleet.empty else pd.Series(dtype=object)
+    best_rule = label_value(row.get("BEST_BASELINE"))
+    a, b, c, d = st.columns(4)
+    a.metric(
+        "Warning precision",
+        percent(row.get("MODEL_TOP_DECILE_PRECISION")),
+        help="Share of the top 10% warning hours followed by a breakdown of 10+ minutes within 4 hours.",
+    )
+    b.metric(
+        "Best simple rule",
+        percent(row.get("BEST_BASELINE_TOP_DECILE_PRECISION")),
+        help=f"Best of three do-nothing rules on the same hours. Winner: {best_rule}.",
+    )
+    c.metric("Advantage", number(row.get("MODEL_ADVANTAGE_PTS"), 1, suffix=" pts"))
+    d.metric("Base rate", percent(row.get("BASE_RATE")), help="Share of all holdout hours followed by a breakdown.")
+
+    per_line = metrics[scope.isin(LINES)].copy()
+    beats = int((series(per_line, "VERDICT").astype(str) == "MODEL_BEATS_BEST_BASELINE").sum())
+    st.markdown(
+        f'<div class="notice"><b>Honest reading.</b> Fleet-wide the warning is '
+        f'{number(row.get("MODEL_ADVANTAGE_PTS"), 1)} points above the best simple rule '
+        f'({esc(best_rule)}), which is within the noise of {number(row.get("TOP_DECILE_ROWS"))} flagged hours. '
+        f'Inside a single line it beats the best simple rule on {beats} of {len(per_line)} lines. '
+        "Most of its signal is which line tends to break and whether it broke recently.</div>",
+        unsafe_allow_html=True,
+    )
+
+    melted = metrics.melt(
+        id_vars=["SCOPE"],
+        value_vars=[c for c in RULE_COLUMNS if c in metrics.columns],
+        var_name="Rule",
+        value_name="Precision",
+    )
+    melted["Rule"] = melted["Rule"].map(RULE_COLUMNS)
+    # Inside one line the worst-line rule is a constant and equals persistence.
+    melted = melted[~((melted["Rule"] == "Worst line first") & (melted["SCOPE"] != "FLEET"))]
+    fig = px.bar(
+        melted,
+        x="SCOPE",
+        y="Precision",
+        color="Rule",
+        barmode="group",
+        category_orders={"SCOPE": ["FLEET"] + LINES, "Rule": list(RULE_COLUMNS.values())},
+        color_discrete_map={
+            "4-hour warning": AMBER,
+            "Downtime continues": "#8fa9c9",
+            "Recent breakdowns": BLUE,
+            "Worst line first": SLATE,
+        },
+    )
+    fig.update_yaxes(tickformat=".0%", range=[0, 1])
+    fig.update_traces(hovertemplate="%{x}<br>%{fullData.name}: %{y:.1%}<extra></extra>")
+    chart(style_fig(fig, height=260))
+    dataframe(
+        metrics.sort_values("SCOPE"),
+        [
+            "SCOPE",
+            "TEST_ROWS",
+            "BASE_RATE",
+            "MODEL_AUC",
+            "MODEL_TOP_DECILE_PRECISION",
+            "PERSISTENCE_TOP_DECILE_PRECISION",
+            "RECENT_TOP_DECILE_PRECISION",
+            "LINE_RATE_TOP_DECILE_PRECISION",
+            "BEST_BASELINE",
+            "MODEL_ADVANTAGE_PTS",
+            "VERDICT",
+        ],
+    )
+    st.caption(
+        "Target: a breakdown (one downtime interval of 10+ minutes, the same rule as a work order) "
+        "starting in the next 4 hours. Same 299 inputs and model settings as the next-hour model; "
+        "trained before 1 Dec 2021, nothing tuned on December. Hours whose next 4 hours are under "
+        "90% covered by the machine log are excluded."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -910,7 +1049,125 @@ def oee_drilldown() -> None:
             fig.add_scatter(x=pareto["CAUSE_CODE"], y=pareto["CUMULATIVE_PCT"], name="Cumulative %", yaxis="y2", line=dict(color=AMBER))
             fig.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, ticksuffix="%"))
         chart(style_fig(fig, height=250))
+    root_cause_card()
     origin_note(True, False, "Ideal rate is each line’s demonstrated rate; fault codes are anonymised.")
+
+
+ROOT_CAUSE_FIELDS = [
+    "ALARM_CODE",
+    "LONG_BREAKDOWNS",
+    "BREAKDOWN_HOURS",
+    "SHARE_OF_LINE_BREAKDOWN_PCT",
+    "MEDIAN_STOP_MIN",
+    "PRECURSOR_RATE",
+    "REPEAT_24H_RATE",
+    "EARLY_SHARE",
+    "LATE_SHARE",
+    "NIGHT_SHARE",
+    "BACK_TO_RUNNING_RATE",
+    "WAITING_AFTER_RATE",
+    "PATTERN",
+]
+
+
+def root_cause_card() -> None:
+    section("Root-cause card · long breakdowns (10+ minutes)")
+    line = st.selectbox("Line", LINES, key="root_cause_line")
+    card = load(
+        "Root-cause card",
+        f"""SELECT * FROM {DB}.GOLD.V_ROOT_CAUSE_ALARM
+            WHERE MACHINE_CODE={sql_literal(line)}
+            ORDER BY RANK_IN_LINE LIMIT 10""",
+    )
+    if card.empty:
+        st.info("No root-cause facts are available for this line.")
+        return
+    for column in ROOT_CAUSE_FIELDS[1:-1]:
+        if column in card:
+            card[column] = pd.to_numeric(card[column], errors="coerce")
+    top = card.iloc[0]
+    st.markdown(
+        f'<div class="notice">On <b>{esc(line)}</b>, alarm <b>{esc(top["ALARM_CODE"])}</b> causes '
+        f'{number(top["SHARE_OF_LINE_BREAKDOWN_PCT"], 0)}% of long-breakdown hours '
+        f'({number(top["LONG_BREAKDOWNS"])} breakdowns, median {number(top["MEDIAN_STOP_MIN"], 0)} min). '
+        f'{percent(top["PRECURSOR_RATE"], 0)} were preceded by a short stop with the same code in the hour before; '
+        f'{percent(top["REPEAT_24H_RATE"], 0)} came back within 24 hours. After the repair the line went '
+        f'back to running {percent(top["BACK_TO_RUNNING_RATE"], 0)} of the time and waited '
+        f'{percent(top["WAITING_AFTER_RATE"], 0)}.</div>',
+        unsafe_allow_html=True,
+    )
+    left, right = st.columns([1.1, 1], gap="medium")
+    with left:
+        top_codes = card.head(8).sort_values("BREAKDOWN_HOURS")
+        fig = px.bar(
+            top_codes,
+            x="BREAKDOWN_HOURS",
+            y="ALARM_CODE",
+            orientation="h",
+            color=top_codes["PATTERN"].map(label_value),
+            labels={"color": "Pattern"},
+        )
+        fig.update_traces(hovertemplate="%{y}: %{x:,.1f} h<extra></extra>")
+        chart(style_fig(fig, height=260))
+    with right:
+        after = card.head(5).copy()
+        after["OTHER_RATE"] = (1 - after["BACK_TO_RUNNING_RATE"] - after["WAITING_AFTER_RATE"]).clip(lower=0)
+        stacked = after.melt(
+            id_vars=["ALARM_CODE"],
+            value_vars=["BACK_TO_RUNNING_RATE", "WAITING_AFTER_RATE", "OTHER_RATE"],
+            var_name="After repair",
+            value_name="Share",
+        )
+        stacked["After repair"] = stacked["After repair"].map(
+            {"BACK_TO_RUNNING_RATE": "Back to running", "WAITING_AFTER_RATE": "Waits", "OTHER_RATE": "Other"}
+        )
+        fig = px.bar(
+            stacked,
+            x="Share",
+            y="ALARM_CODE",
+            color="After repair",
+            orientation="h",
+            barmode="stack",
+            color_discrete_map={"Back to running": TEAL, "Waits": AMBER, "Other": SLATE},
+        )
+        fig.update_xaxes(tickformat=".0%", range=[0, 1])
+        fig.update_traces(hovertemplate="%{y}<br>%{fullData.name}: %{x:.0%}<extra></extra>")
+        chart(style_fig(fig, height=260))
+    dataframe(card, ROOT_CAUSE_FIELDS, overrides={"BREAKDOWN_HOURS": ("Hours", "hours1")})
+    st.caption(
+        "Clock bands are fixed 8-hour windows in dataset time; the plant's real shift rota is not published. "
+        "Pattern labels use a fixed 50% rule and fewer than 5 events is marked too few. Alarm codes are "
+        "anonymised, so no component or failure mode can be named."
+    )
+    if st.button("Explain this card with Cortex", key=f"explain_rc_{line}"):
+        facts = card.head(5)[ROOT_CAUSE_FIELDS].copy()
+        facts["PATTERN"] = facts["PATTERN"].map(label_value)
+        prompt = (
+            "You are a maintenance reliability analyst. Explain the root-cause facts below for "
+            f"packaging line {line} in plain English for a plant manager. Use only these numbers. "
+            "Alarm codes are anonymised: never name a component, failure mode, or technician finding, "
+            "and do not invent costs, causes, or trends. Rates are fractions between 0 and 1. "
+            "Say what the pattern suggests the team should check next, and state what the data cannot tell.\n\n"
+            f"<facts>{facts.to_json(orient='records')}</facts>"
+        )
+        sql = (
+            "SELECT AI_COMPLETE("
+            "model => 'llama3.3-70b', "
+            f"prompt => {sql_literal(prompt, 12000)}, "
+            "response_format => TYPE OBJECT(answer STRING, evidence STRING, caveats STRING)) AS RESPONSE"
+        )
+        answer = load("Cortex explanation", sql)
+        if not answer.empty:
+            raw = answer.iloc[0]["RESPONSE"]
+            try:
+                structured = raw if isinstance(raw, dict) else json.loads(str(raw))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                structured = {"answer": str(raw)}
+            for key in ["answer", "evidence", "caveats"]:
+                if structured.get(key):
+                    st.markdown(f"**{key.title()}**")
+                    st.text(str(structured[key]))
+            st.caption("Cortex saw only the five rows above; it generated and executed no SQL.")
 
 
 # ---------------------------------------------------------------------------
@@ -920,6 +1177,113 @@ def oee_drilldown() -> None:
 
 def _scenario_work_orders() -> pd.DataFrame:
     return pd.DataFrame(st.session_state.get("scenario_work_orders", []))
+
+
+def risk_work_orders() -> None:
+    section("Automatic work orders from the 4-hour warning · December 2021 replay")
+    summary = table("GOLD", "V_RISK_WORK_ORDER_SUMMARY")
+    orders = load(
+        "Automatic work orders",
+        f"""SELECT RISK_WORK_ORDER_ID,MACHINE_CODE,ISSUED_AT,OPEN_UNTIL,PRIORITY,STATUS,
+                   EPISODE_FLAGGED_HOURS,FAILURE_SCORE,TOP_RECENT_ALARM,MATERIAL_ID,
+                   STOCK_STATE,RECOMMENDED_ACTION,EVIDENCE,OUTCOME,LEAD_TIME_MIN,
+                   THRESHOLD_SCOPE,DATA_ORIGIN
+            FROM {DB}.GOLD.RISK_WORK_ORDER
+            ORDER BY ISSUED_AT DESC""",
+    )
+    if summary.empty or orders.empty:
+        st.info("No automatic work orders have been generated yet.")
+        return
+    fleet = summary[series(summary, "SCOPE").astype(str) == "FLEET"]
+    row = fleet.iloc[0] if not fleet.empty else pd.Series(dtype=object)
+    a, b, c, d = st.columns(4)
+    a.metric("Orders raised", number(row.get("AUTO_WORK_ORDERS")), help="One planned inspection per risk episode per line (8-hour cooldown).")
+    b.metric(
+        "Breakdown followed",
+        percent(row.get("HIT_RATE")),
+        delta=f"random hour {percent(row.get('RANDOM_HOUR_HIT_RATE'))}",
+        delta_color="off",
+        help="Share of orders followed by a real 10+ minute breakdown within 4 hours, next to the rate for a random hour on the same lines.",
+    )
+    c.metric(
+        "Breakdowns covered",
+        percent(row.get("COVERAGE_RATE")),
+        help="Share of December breakdowns that started while an automatic order was open.",
+    )
+    d.metric("Orders with kit risk", number(row.get("ORDERS_WITH_KIT_RISK")), help="The recent alarm's service kit is at reorder point or out of stock.")
+
+    left, right = st.columns([1, 1.3], gap="medium")
+    with left:
+        per_line = summary[series(summary, "SCOPE").astype(str).isin(LINES)].copy()
+        bars = per_line.melt(
+            id_vars=["SCOPE"],
+            value_vars=["HIT_RATE", "RANDOM_HOUR_HIT_RATE"],
+            var_name="Measure",
+            value_name="Rate",
+        )
+        bars["Measure"] = bars["Measure"].map({"HIT_RATE": "Orders", "RANDOM_HOUR_HIT_RATE": "Random hour"})
+        fig = px.bar(
+            bars,
+            x="SCOPE",
+            y="Rate",
+            color="Measure",
+            barmode="group",
+            category_orders={"SCOPE": LINES},
+            color_discrete_map={"Orders": AMBER, "Random hour": SLATE},
+        )
+        fig.update_yaxes(tickformat=".0%", range=[0, 1])
+        fig.update_traces(hovertemplate="%{x}<br>%{fullData.name}: %{y:.0%}<extra></extra>")
+        chart(style_fig(fig, height=250))
+    with right:
+        dataframe(
+            summary.sort_values("SCOPE"),
+            [
+                "SCOPE",
+                "AUTO_WORK_ORDERS",
+                "CONFIRMED_WITHIN_4H",
+                "HIT_RATE",
+                "RANDOM_HOUR_HIT_RATE",
+                "LIFT_VS_RANDOM",
+                "BREAKDOWNS_IN_PERIOD",
+                "BREAKDOWNS_COVERED",
+                "COVERAGE_RATE",
+            ],
+            overrides={"LIFT_VS_RANDOM": ("Lift ×", "score")},
+        )
+    outcome = st.multiselect(
+        "Outcome filter",
+        ["BREAKDOWN_WITHIN_4H", "NO_BREAKDOWN_WITHIN_4H"],
+        default=[],
+        format_func=label_value,
+        placeholder="All outcomes",
+        key="risk_wo_outcome",
+    )
+    shown = orders[orders["OUTCOME"].isin(outcome)] if outcome else orders
+    dataframe(
+        shown,
+        [
+            "RISK_WORK_ORDER_ID",
+            "MACHINE_CODE",
+            "ISSUED_AT",
+            "PRIORITY",
+            "STATUS",
+            "EPISODE_FLAGGED_HOURS",
+            "FAILURE_SCORE",
+            "TOP_RECENT_ALARM",
+            "STOCK_STATE",
+            "OUTCOME",
+            "LEAD_TIME_MIN",
+            "RECOMMENDED_ACTION",
+            "EVIDENCE",
+        ],
+    )
+    st.caption(
+        "Orders are raised when a line-hour is in that line's top 10% of warning scores. The cut-off is "
+        "taken from December's own scores, which a live system could not do; it would have to be fixed "
+        "in advance. Orders and kits are synthetic IT records; outcomes are observed PIADE breakdowns. "
+        "Stock state is today's scenario snapshot, not the stock on the day. The data ends on "
+        "1 Jan 2022, so this is a replay and no scheduled task runs it."
+    )
 
 
 def work_materials() -> None:
@@ -1046,6 +1410,8 @@ def work_materials() -> None:
             "the values are zero. Cortex is reserved for questions that require synthesis; "
             "fixed status and column definitions are shown here without an AI call."
         )
+
+    risk_work_orders()
 
     left, right = st.columns([1.1, 1], gap="medium")
     with left:

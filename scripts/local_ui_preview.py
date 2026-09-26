@@ -26,6 +26,68 @@ LINES = ["s_1", "s_2", "s_3", "s_4", "s_5"]
 def frame_for(sql: str) -> pd.DataFrame:
     normalized = " ".join(sql.upper().split())
 
+    if "PLANT_B_FAILURE_METRICS" in normalized:
+        cols = ["SCOPE", "TEST_ROWS", "BASE_RATE", "MODEL_AUC", "MODEL_TOP_DECILE_PRECISION",
+                "PERSISTENCE_TOP_DECILE_PRECISION", "RECENT_TOP_DECILE_PRECISION",
+                "LINE_RATE_TOP_DECILE_PRECISION", "BEST_BASELINE", "BEST_BASELINE_TOP_DECILE_PRECISION",
+                "MODEL_ADVANTAGE_PTS", "VERDICT", "TOP_DECILE_ROWS"]
+        rows = [
+            ("FLEET", 1340, .25, .7322, .6269, .3806, .4104, .5821, "LINE_RATE", .5821, 4.48, "MODEL_BEATS_BEST_BASELINE", 134),
+            ("s_1", 397, .3149, .5424, .425, .425, .225, .425, "PERSISTENCE", .425, 0, "MODEL_DOES_NOT_BEAT_BEST_BASELINE", 40),
+            ("s_2", 156, .5897, .6437, .625, .375, .75, .375, "RECENT", .75, -12.5, "MODEL_DOES_NOT_BEAT_BEST_BASELINE", 16),
+            ("s_3", 205, .2, .557, .2381, .2857, .1905, .2857, "PERSISTENCE", .2857, -4.76, "MODEL_DOES_NOT_BEAT_BEST_BASELINE", 21),
+            ("s_4", 273, .1136, .6508, .25, .2857, .25, .2857, "PERSISTENCE", .2857, -3.57, "MODEL_DOES_NOT_BEAT_BEST_BASELINE", 28),
+            ("s_5", 309, .1489, .7666, .4516, .2903, .4839, .2903, "RECENT", .4839, -3.23, "MODEL_DOES_NOT_BEAT_BEST_BASELINE", 31),
+        ]
+        return pd.DataFrame(rows, columns=cols)
+
+    if "V_ROOT_CAUSE_ALARM" in normalized:
+        cols = ["ALARM_CODE", "LONG_BREAKDOWNS", "BREAKDOWN_HOURS", "SHARE_OF_LINE_BREAKDOWN_PCT",
+                "MEDIAN_STOP_MIN", "PRECURSOR_RATE", "REPEAT_24H_RATE", "EARLY_SHARE", "LATE_SHARE",
+                "NIGHT_SHARE", "BACK_TO_RUNNING_RATE", "WAITING_AFTER_RATE", "PATTERN"]
+        rows = [
+            ("A_065", 805, 313.2, 63.6, 16.4, .738, .714, .462, .287, .251, .954, .017, "REPEATS_WITHIN_A_DAY"),
+            ("A_066", 134, 51.9, 10.5, 15.6, .754, .209, .306, .328, .366, .373, .590, "SHORT_STOPS_COME_FIRST"),
+            ("A_001", 134, 40.5, 8.2, 13.1, .045, .194, .276, .164, .560, .933, .030, "CLOCK_BAND_CLUSTERED"),
+        ]
+        return pd.DataFrame(rows, columns=cols)
+
+    if "V_RISK_WORK_ORDER_SUMMARY" in normalized:
+        cols = ["SCOPE", "AUTO_WORK_ORDERS", "CONFIRMED_WITHIN_4H", "HIT_RATE", "RANDOM_HOUR_HIT_RATE",
+                "LIFT_VS_RANDOM", "ORDERS_WITH_KIT_RISK", "BREAKDOWNS_IN_PERIOD", "BREAKDOWNS_COVERED",
+                "COVERAGE_RATE"]
+        rows = [
+            ("FLEET", 45, 16, .3556, .2816, 1.263, 28, 196, 45, .2296),
+            ("s_1", 12, 6, .5, .3149, 1.588, 3, 69, 16, .2319),
+            ("s_2", 8, 5, .625, .5897, 1.06, 4, 59, 11, .1864),
+            ("s_3", 13, 3, .2308, .2, 1.154, 9, 30, 6, .2),
+            ("s_4", 6, 1, .1667, .1136, 1.468, 6, 12, 3, .25),
+            ("s_5", 6, 1, .1667, .1489, 1.12, 6, 26, 9, .3462),
+        ]
+        return pd.DataFrame(rows, columns=cols)
+
+    if "GOLD.RISK_WORK_ORDER" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "RISK_WORK_ORDER_ID": f"RWO-B-s_1-202112{10 + i:02d}10",
+                    "MACHINE_CODE": LINES[i % 5],
+                    "ISSUED_AT": dt.datetime(2021, 12, 10 + i, 10),
+                    "PRIORITY": "P3",
+                    "STATUS": "PLANNED",
+                    "EPISODE_FLAGGED_HOURS": 2,
+                    "FAILURE_SCORE": .74,
+                    "TOP_RECENT_ALARM": "A_065",
+                    "STOCK_STATE": "REORDER",
+                    "OUTCOME": "BREAKDOWN_WITHIN_4H" if i % 2 else "NO_BREAKDOWN_WITHIN_4H",
+                    "LEAD_TIME_MIN": 61 if i % 2 else None,
+                    "RECOMMENDED_ACTION": "Inspect line before the window closes.",
+                    "EVIDENCE": "Warning score 0.74; long breakdowns in last 24 h: 2",
+                }
+                for i in range(6)
+            ]
+        )
+
     if "V_EXECUTIVE_KPI" in normalized:
         return pd.DataFrame(
             [

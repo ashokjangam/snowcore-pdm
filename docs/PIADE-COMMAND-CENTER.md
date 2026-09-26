@@ -164,6 +164,49 @@ state persistence and transition patterns; PIADE contains no vibration,
 temperature or RPM sensor channels. It does not estimate remaining useful
 life.
 
+### 4-hour breakdown warning (`sql/21_failure_warning.sql`)
+
+Target: a downtime interval of at least 10 minutes (the work-order rule)
+starting in `[H+1h, H+5h)`. Same 299 features and ExtraTrees 700/0.4/30
+configuration; training rows whose label window reaches 2021-12-01 are purged;
+hours whose next four hours are under 90% covered by the interval log are
+excluded (coverage comes from `SILVER.PIADE_INTERVAL`, because the published
+hourly table omits many logged hours). Nothing was tuned on December.
+
+December 2021 result (1,340 hours, base rate 25.0%, 134 flagged):
+
+| Rule | Top-decile precision | AUC |
+|---|---|---|
+| 4-hour warning | 62.7% | 0.732 |
+| Worst line first (training-period line rate) | 58.2% | 0.701 |
+| Recent breakdowns (last 24 h) | 41.0% | 0.662 |
+| Downtime continues (persistence) | 38.1% | 0.605 |
+
+Fleet-wide the model is +4.5 points over the best rule, within noise. Within
+each line it does not beat the best simple rule (ties s_1, loses s_2–s_5).
+Line identity features dominate importance. This is recorded as a weak result,
+not a win.
+
+### Root-cause card (`sql/22_root_cause.sql`)
+
+`GOLD.ROOT_CAUSE_EVENT` holds one row per long breakdown with precursor
+short stops (same code, 60 minutes before), same-code repeat within 24 hours,
+clock band and next state. `GOLD.V_ROOT_CAUSE_ALARM` aggregates per line and
+code with a deterministic pattern label. Clock bands are dataset-time windows,
+not the real shift rota, and are not normalised for when each line runs.
+
+### Automatic work orders (`sql/23_risk_work_orders.sql`)
+
+`GOLD.GENERATE_RISK_WORK_ORDERS(cooldown_hours, 'LINE'|'FLEET')` idempotently
+replaces `GOLD.RISK_WORK_ORDER` rows (`SYNTHETIC_IT`) with one planned
+inspection per risk episode, carrying score, recent-alarm and kit-stock
+evidence, and a back-tested outcome. With the default per-line top-10% cut and
+an 8-hour cooldown: 45 orders, 35.6% followed by a breakdown within 4 hours
+against 28.2% for random hours on the same lines (1.26×), covering 23% of
+December's 196 breakdowns. The fleet-wide cut looks better (64.5%) only
+because 27 of 31 orders go to s_2. The cut-off comes from December's own score
+distribution, and there is no scheduled Task because the data is not live.
+
 Ashok's 0.766 AUC result is valid for the original Snowflake synthetic
 quickstart after its failure generator was repaired. It is not comparable to
 PIADE: the target, features, assets, horizon and data-generating process are
@@ -176,11 +219,13 @@ The primary screens are:
 1. **Command Center** — site KPIs, five-line fleet ranking, loss bridge and
    owned action queue.
 2. **Fleet Risk** — next-hour risk, measured model trust, recent operating
-   history and feature drivers.
-3. **OEE Drill-Down** — weighted A/P/Q, weekly weighted trend, line comparison
-   and fault Pareto.
-4. **Work & Materials** — work orders, parts position and a visible
-   event-to-ERP lineage.
+   history, feature drivers and the 4-hour breakdown warning against three
+   simple rules.
+3. **OEE Drill-Down** — weighted A/P/Q, weekly weighted trend, line comparison,
+   fault Pareto and the per-line root-cause card with a bounded Cortex
+   explanation.
+4. **Work & Materials** — work orders, automatic risk work orders with
+   outcomes, parts position and a visible event-to-ERP lineage.
 5. **Financial Risk** — scenario exposure split between planning and
    maintenance.
 6. **Analyst** — Operational Q&A over long-form bounded facts, plus a

@@ -220,8 +220,16 @@ Run the real-data path in dependency order:
 7. `sql/18_piade_erp.sql`
 8. `sql/19_decision_intelligence.sql`
 9. `sql/20_piade_autoresearch.sql` then `CALL ML.RUN_PIADE_AUTORESEARCH(25)`
-10. `sql/17_semantic_cortex.sql`
-11. upload `streamlit/app.py` to the existing Streamlit stage
+10. `sql/21_failure_warning.sql` (4-hour breakdown warning; trains and scores)
+11. `sql/22_root_cause.sql` (root-cause card views)
+12. `sql/23_risk_work_orders.sql` (automatic work orders; calls
+    `GOLD.GENERATE_RISK_WORK_ORDERS(8, 'LINE')`)
+13. `sql/17_semantic_cortex.sql`
+14. upload `streamlit/app.py` to the existing Streamlit stage
+
+Steps 10–12 need the 21 → 22 → 23 order; 21 and 23 contain procedures, so run
+them with `PUT` plus `EXECUTE IMMEDIATE FROM` when the CLI cannot send a large
+`$$` body.
 
 `sql/20` does not overwrite the production ExtraTrees scores. A champion is
 eligible only after the four validation gates; December 2021+ is a reused
