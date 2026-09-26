@@ -178,6 +178,117 @@ def frame_for(sql: str) -> pd.DataFrame:
             ]
         )
 
+    if "V_PIADE_RESEARCH_TRIALS" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "TRIAL_NUMBER": i,
+                    "MODEL_FAMILY": family,
+                    "RUN_STATUS": status,
+                    "MEAN_AUC": auc,
+                    "WORST_AUC": auc - 0.012,
+                    "MEAN_AVG_PRECISION": ap,
+                    "MEAN_TOP_DECILE_PRECISION": precision,
+                    "MEAN_PERSISTENCE_PRECISION": 0.624,
+                    "MEAN_TOP_DECILE_RECALL": 0.17 + i / 1000,
+                    "RUNTIME_SECONDS": 38 + i * 3,
+                    "CONFIG_JSON": (
+                        '{"n_estimators": %d, "max_features": %.2f, '
+                        '"min_samples_leaf": %d}'
+                        % (300 + i * 20, 0.25 + (i % 5) * 0.1, 10 + (i % 4) * 10)
+                    ),
+                    "RATIONALE": "Bounded allowlisted trial.",
+                    "REJECTION_REASON": None if status == "KEPT" else "Did not improve the guarded objective.",
+                }
+                for i, family, status, auc, ap, precision in [
+                    (1, "EXTRA_TREES", "KEPT", .667, .611, .702),
+                    (2, "RANDOM_FOREST", "DISCARDED", .651, .596, .681),
+                    (3, "HIST_GRADIENT_BOOSTING", "KEPT", .676, .624, .721),
+                    (4, "XGBOOST", "DISCARDED", .671, .619, .713),
+                    (5, "LIGHTGBM", "KEPT", .684, .636, .744),
+                    (6, "EXTRA_TREES", "DISCARDED", .679, .628, .733),
+                ]
+            ]
+        )
+
+    if "V_PIADE_RESEARCH_CHAMPION" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "TRIAL_NUMBER": 5,
+                    "MODEL_FAMILY": "LIGHTGBM",
+                    "MEAN_AUC": .684,
+                    "WORST_AUC": .672,
+                    "PROMOTION_STATUS": "VALIDATION_CHAMPION",
+                }
+            ]
+        )
+
+    if "V_ASSUMPTIONS_ACTIVE" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "ASSUMPTION_NAME": "Contribution margin per package",
+                    "ASSUMPTION_VALUE": 0.18,
+                    "UNIT": "EUR/package",
+                    "CLAIM_CLASS": "SYNTHETIC_SCENARIO",
+                    "EVIDENCE_NOTE": "Editable illustrative assumption; not present in PIADE.",
+                }
+            ]
+        )
+
+    if "V_MARGIN_SCENARIO_BASE" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "GRAIN": "SITE",
+                    "SUBJECT": "PLANT_B",
+                    "ACTUAL_OUTPUT_UNITS": 61_290_000,
+                    "DATA_ORIGIN": "OBSERVED_DERIVED",
+                }
+            ]
+        )
+
+    if "V_IMPROVEMENT_LEVERS" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "LEVER_RANK": rank,
+                    "MACHINE_CODE": line,
+                    "LOSS_BUCKET": lever,
+                    "OBSERVED_FORGONE_PACKAGES": packages,
+                    "PCT_OF_SITE_BUCKET_LOSS": share * 100,
+                    "OBSERVED_LOSS_HOURS": packages / 4400,
+                    "SCENARIO_SIGNED_LOSS_MARGIN_EUR": packages * .18,
+                    "EVIDENCE_NOTE": "Historical attribution, not guaranteed recovery.",
+                    "CAUSAL_CAVEAT": "Size-of-loss ordering; not causal.",
+                }
+                for rank, line, lever, packages, share in [
+                    (1, "s_2", "Reduce breakdown loss", 3_420_000, .31),
+                    (2, "s_3", "Validate idle-time constraints", 2_870_000, .26),
+                    (3, "s_4", "Reduce speed loss", 2_110_000, .19),
+                    (4, "s_1", "Validate idle-time constraints", 1_640_000, .15),
+                ]
+            ]
+        )
+
+    if "V_ANALYST_DECISION_CONTEXT" in normalized:
+        return pd.DataFrame(
+            [
+                {
+                    "TOPIC": "OEE",
+                    "SUBJECT": line,
+                    "METRIC_NAME": "OEE",
+                    "METRIC_VALUE_NUM": value,
+                    "UNIT": "RATIO",
+                    "CLAIM_CLASS": "OBSERVED_DERIVED",
+                    "EVIDENCE_NOTE": "Derived from PIADE production-state records.",
+                    "SOURCE_VIEW": "GOLD.V_OEE_ROLLUP",
+                }
+                for line, value in [("s_1", .5643), ("s_2", .2885), ("s_3", .3617), ("s_4", .3745), ("s_5", .5712)]
+            ]
+        )
+
     return pd.DataFrame()
 
 

@@ -122,9 +122,34 @@ The revised search does not tune against its final month:
 - validation fold 2: train before 2021-08-01, validate August–November;
 - blind test: December 2021 onward.
 
-The selected `ExtraTreesClassifier` was chosen by mean validation AUC, with
-worst-fold AUC and fixed-workload precision as tie-breakers. The Snowflake
-deployment reproduced the untouched final period at:
+`ML.RUN_PIADE_AUTORESEARCH` repeats that protocol inside Snowflake: Cortex
+may propose allowlisted JSON configs; a frozen evaluator trains them; invalid
+or duplicate proposals fall back to a deterministic candidate list. The
+campaign is capped at 25 trials and 30 minutes. Forest sizes are capped for
+the X-Small warehouse because a full-width RandomForest fit could not be
+preempted and overran the budget. Promotion requires all of:
+higher mean validation AUC than the ExtraTrees baseline, no worst-fold AUC
+regression, no top-decile precision-lift regression versus persistence, and
+no new per-line persistence failures. Failing any gate leaves production
+tables unchanged.
+
+Campaign `233717d9-b657-4d83-a030-e918e9849237` (25 trials, 22 minutes)
+completed with `PROMOTION_ELIGIBLE=TRUE` and
+`PRODUCTION_TABLES_MODIFIED=FALSE`. The production ExtraTrees
+(700 trees, `max_features=0.4`, `min_samples_leaf=30`) remains the
+scored model. The champion is ExtraTrees 600 / 0.7 / 45. Mean validation
+AUC moved from 0.687942 to 0.688040. Reused-holdout fleet AUC was
+0.688842 with top-decile precision 0.764331; those numbers were not used
+for selection. The lift is ~0.0001 AUC. That is enough to pass the coded
+gates and not enough to justify applying `sql/15`. Registry logging was
+skipped (`snowflake-ml-python` version resolution). Contract
+`9e96f29e-4f98-41d3-a5eb-e08d5f3aa797` is the refit recipe if promotion
+is done later.
+
+The selected production `ExtraTreesClassifier` was chosen by mean
+validation AUC, with worst-fold AUC and fixed-workload precision as
+tie-breakers. The Snowflake deployment reproduced the previously
+observed final period at:
 
 - 1,566 machine-hours;
 - base rate 44.25%;
@@ -158,8 +183,14 @@ The primary screens are:
    event-to-ERP lineage.
 5. **Financial Risk** — scenario exposure split between planning and
    maintenance.
-6. **Analyst** — Cortex narrative over bounded aggregate facts with an
-   evidence/source list.
+6. **Analyst** — Operational Q&A over long-form bounded facts, plus a
+   Decision Scenario mode that computes a throughput or contribution-margin
+   gap in the app and only then asks Cortex to narrate those numbers.
+7. **Research Lab** — 25-trial Snowflake-native search ledger. Selection
+   uses two rolling-origin folds only. December 2021+ is reused-holdout
+   confirmation after promotion gates, never a search signal. The latest
+   completed campaign is `233717d9`; the scored production model is
+   unchanged.
 
 The visual system is an operations console: high information density,
 restricted colour, risk colour used only for exceptions, no marketing hero,

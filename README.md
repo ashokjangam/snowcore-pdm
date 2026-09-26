@@ -122,6 +122,7 @@ PIADE CC BY 4.0
   ├─ ML      299-feature ExtraTrees model trained in Snowpark Python
   ├─ ERP     synthetic production/work orders, parts, inventory and lineage
   ├─ AI      semantic view + bounded Cortex narrative over aggregate facts
+  ├─ RESEARCH  guarded 25-trial Snowpark loop + ML experiment log
   └─ APP     Streamlit in Snowflake operations console
 ```
 
@@ -217,8 +218,16 @@ Run the real-data path in dependency order:
 5. `sql/16_it_synthetic.sql`
 6. `sql/15_plant_b_risk.sql`
 7. `sql/18_piade_erp.sql`
-8. `sql/17_semantic_cortex.sql`
-9. upload `streamlit/app.py` to the existing Streamlit stage
+8. `sql/19_decision_intelligence.sql`
+9. `sql/20_piade_autoresearch.sql` then `CALL ML.RUN_PIADE_AUTORESEARCH(25)`
+10. `sql/17_semantic_cortex.sql`
+11. upload `streamlit/app.py` to the existing Streamlit stage
+
+`sql/20` does not overwrite the production ExtraTrees scores. A champion is
+eligible only after the four validation gates; December 2021+ is a reused
+holdout, not a search fold. Campaign `233717d9` passed those gates with a
+~0.0001 mean-AUC lift (0.687942 → 0.688040) and was **not** applied to
+production. The champion contract is `9e96f29e-4f98-41d3-a5eb-e08d5f3aa797`.
 
 The execution/audit trail is under `docs/cortex-audit/`; prompt 024 is the
 end-to-end deployment and verification record.
