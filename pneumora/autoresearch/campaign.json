@@ -1,0 +1,567 @@
+{
+  "study": "PNEUMORA MetroPT-3 frozen 2-hour failure forecast",
+  "split": {
+    "fit": "February",
+    "calibration": "March",
+    "observed_test": "April-July"
+  },
+  "target": "merged alert episode within 120 minutes before a documented failure start",
+  "model_features": [
+    "loaded_fraction_2h",
+    "cycle_starts_2h",
+    "tp3_reservoir_gap",
+    "tp2_slope_30m",
+    "tp2_slope_120m",
+    "tp3_slope_30m",
+    "tp3_slope_120m",
+    "reservoirs_slope_30m",
+    "reservoirs_slope_120m",
+    "dv_pressure_mean_30m",
+    "dv_pressure_mean_120m",
+    "motor_current_mean_30m",
+    "motor_current_mean_120m",
+    "motor_current_std_120m",
+    "oil_temperature_mean_30m",
+    "oil_temperature_mean_120m",
+    "oil_temperature_std_120m",
+    "h1_mean_120m"
+  ],
+  "direct_lps_or_7bar_features_in_learned_models": false,
+  "synthetic_contract": {
+    "training_rows": 7152,
+    "calibration_rows": 0,
+    "test_rows": 0,
+    "adds_evidence": false,
+    "mechanisms": [
+      "downstream_leak",
+      "dryer_drain_open",
+      "reduced_delivery"
+    ]
+  },
+  "simulator": {
+    "passes_healthy_march_check": true,
+    "comparisons": {
+      "loaded_fraction_2h": {
+        "fit_median": 0.9396446937821412,
+        "heldout_healthy_median": 0.894489247311828,
+        "normalised_error_iqr": 1.9532355915065849
+      },
+      "cycle_starts_2h": {
+        "fit_median": 4.0,
+        "heldout_healthy_median": 5.0,
+        "normalised_error_iqr": 1.0
+      },
+      "oil_temperature_mean_120m": {
+        "fit_median": 56.68746079749104,
+        "heldout_healthy_median": 61.913678315412184,
+        "normalised_error_iqr": 1.6024283864675228
+      }
+    },
+    "parameters": {
+      "unload_pressure": 9.860199999999999,
+      "loaded_fraction_median": 0.9396446937821412,
+      "loaded_fraction_iqr": 0.02311827956989232,
+      "pressure_slope_scale": 0.04704166666666665,
+      "temperature_scale": 1.5094470895501457,
+      "current_scale": 1.632948584896652
+    }
+  },
+  "arms": {
+    "lps_existing_alarm": {
+      "threshold": 0.641466693440437,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 4,
+        "false_alerts_per_healthy_day": 0.1297735721527543,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 28,
+        "alert_precision": 0.0,
+        "false_alerts": 28,
+        "false_alerts_per_day": 0.18281154360590327,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "duty_cycle_rule": {
+      "threshold": 1.0444992389108396,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 4,
+        "false_alerts_per_healthy_day": 0.1297735721527543,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 11,
+        "alert_precision": 0.0,
+        "false_alerts": 11,
+        "false_alerts_per_day": 0.07181882070231914,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "cycle_pressure_rule": {
+      "threshold": 1.8178762866248126,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 4,
+        "false_alerts_per_healthy_day": 0.1297735721527543,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 13,
+        "alert_precision": 0.0,
+        "false_alerts": 13,
+        "false_alerts_per_day": 0.08487678810274081,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "isolation_forest": {
+      "threshold": 0.2321872914892231,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 4,
+        "false_alerts_per_healthy_day": 0.1297735721527543,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 1,
+        "alert_precision": 0.0,
+        "false_alerts": 1,
+        "false_alerts_per_day": 0.0065289837002108315,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "pca_residual": {
+      "threshold": 2487.174866677264,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 3,
+        "false_alerts_per_healthy_day": 0.09733017911456573,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 2,
+        "episode_recall_2h": 0.5,
+        "merged_alerts": 232,
+        "alert_precision": 0.008620689655172414,
+        "false_alerts": 230,
+        "false_alerts_per_day": 1.5016662510484913,
+        "median_lead_minutes": 2.5,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": true,
+        "positive_lead": true,
+        "not_control": true
+      }
+    },
+    "compact_autoencoder": {
+      "threshold": 410971.6234991458,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 3,
+        "false_alerts_per_healthy_day": 0.09733017911456573,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 6,
+        "alert_precision": 0.0,
+        "false_alerts": 6,
+        "false_alerts_per_day": 0.03917390220126499,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "physics_synthetic_gbdt": {
+      "threshold": 0.9136153306012108,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 1,
+        "false_alerts_per_healthy_day": 0.03244339303818858,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 5,
+        "alert_precision": 0.0,
+        "false_alerts": 5,
+        "false_alerts_per_day": 0.03264491850105416,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": true
+      }
+    },
+    "wrong_physics_control": {
+      "threshold": 0.9999457710891511,
+      "calibration": {
+        "healthy_days": 30.822916666666668,
+        "merged_alerts": 4,
+        "false_alerts_per_healthy_day": 0.1297735721527543,
+        "budget": 0.14285714285714285
+      },
+      "observed_test": {
+        "observed_episodes": 4,
+        "episodes_warned_2h": 0,
+        "episode_recall_2h": 0.0,
+        "merged_alerts": 13,
+        "alert_precision": 0.0,
+        "false_alerts": 13,
+        "false_alerts_per_day": 0.08487678810274081,
+        "median_lead_minutes": null,
+        "evaluation_origin": "OBSERVED_METROPT3"
+      },
+      "promotion_gates": {
+        "calibration_workload": true,
+        "three_of_four": false,
+        "beats_duty_baseline": false,
+        "positive_lead": false,
+        "not_control": false
+      }
+    }
+  },
+  "episode_tables": {
+    "lps_existing_alarm": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "duty_cycle_rule": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "cycle_pressure_rule": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "isolation_forest": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "pca_residual": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": "2020-05-29 23:25:00",
+        "hit_2h": true,
+        "lead_minutes": 5.0,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": "2020-06-05 10:00:00",
+        "hit_2h": true,
+        "lead_minutes": 0.0,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "compact_autoencoder": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "physics_synthetic_gbdt": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ],
+    "wrong_physics_control": [
+      {
+        "episode_id": "F01",
+        "failure_start": "2020-04-18 00:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "day"
+      },
+      {
+        "episode_id": "F02",
+        "failure_start": "2020-05-29 23:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F03",
+        "failure_start": "2020-06-05 10:00:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      },
+      {
+        "episode_id": "F04",
+        "failure_start": "2020-07-15 14:30:00",
+        "alert_at": null,
+        "hit_2h": false,
+        "lead_minutes": null,
+        "onset_precision": "minute"
+      }
+    ]
+  },
+  "decision": {
+    "status": "NO_PROMOTION",
+    "champion": null,
+    "wrong_physics_control_matches": false,
+    "observed_test_episodes": 4
+  }
+}

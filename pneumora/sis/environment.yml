@@ -3,6 +3,6 @@ channels:
   - snowflake
 dependencies:
   - streamlit=1.52.2
-  - plotly
-  - pandas
+  - plotly=6.5.0
+  - pandas=2.3.3
   - snowflake-snowpark-python

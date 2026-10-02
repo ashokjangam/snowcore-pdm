@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+  <title id="title">PNEUMORA primary logo</title>
+  <desc id="desc">PNEUMORA compressor intelligence logo with a pressure-contour symbol and controlled signal path.</desc>
+  <g transform="translate(46 38)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M151 28C84 28 31 82 31 151C31 220 84 272 151 272C200 272 243 244 263 202" stroke="#182126" stroke-width="15"/>
+    <path d="M151 59C101 59 62 99 62 151C62 202 101 241 151 241C187 241 219 220 233 189" stroke="#39A9DB" stroke-width="11"/>
+    <path d="M151 91C119 91 94 117 94 151C94 184 119 210 151 210C174 210 195 197 204 177" stroke="#182126" stroke-width="8"/>
+    <path d="M151 151H274" stroke="#C77B50" stroke-width="7"/>
+    <circle cx="151" cy="151" r="9" fill="#39A9DB" stroke="none"/>
+    <circle cx="274" cy="151" r="7" fill="#C77B50" stroke="none"/>
+  </g>
+  <g transform="translate(350 101)">
+    <text x="0" y="76" fill="#182126" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="700" letter-spacing="8">PNEUMORA</text>
+    <path d="M4 102H720" stroke="#D2D9DC" stroke-width="2"/>
+    <path d="M4 102H140" stroke="#39A9DB" stroke-width="5"/>
+    <text x="5" y="133" fill="#5C7078" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="3">COMPRESSOR INTELLIGENCE</text>
+  </g>
+</svg>

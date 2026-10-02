@@ -20,7 +20,9 @@ config.toml
 __pycache__/
 *.py[cod]
 .venv/
+.venv-sis152/
 venv/
+.pytest_cache/
 .ipynb_checkpoints/
 
 # OS / editor
@@ -29,7 +31,26 @@ Thumbs.db
 .vscode/
 .idea/
 
+# AXISGUARD local source data and research artifacts — never commit
+axisguard/data/
+axisguard/autoresearch/results.tsv
+axisguard/autoresearch/*.joblib
+axisguard/autoresearch/*.pkl
+
+# PNEUMORA official source data and generated artifacts
+pneumora/data/raw/
+pneumora/data/processed/
+pneumora/data/product/
+pneumora/data/*.sqlite
+pneumora/autoresearch/*.joblib
+pneumora/autoresearch/*.parquet
+
 # Working notes not intended for publication
 session-transcripts/
 DAY-*-DIARY.md
 SESSION-NOTES.md
+
+# Local source exports and presentation QA renders
+data/raw/
+**/data/raw/
+docs/submission/deck-render/

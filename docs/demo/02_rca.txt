@@ -1,0 +1,19 @@
+You are demonstrating TRIDENT OPS capability 2: bounded, cited root-cause
+investigation. Use connection hackathon. Read only; do not create, alter, insert,
+update, delete, put or remove anything.
+
+Read the five highest-ranked rows for machine s_1 from
+SNOWCORE_REAL.GOLD.V_ROOT_CAUSE_ALARM. Send only these fields to AI_COMPLETE:
+ALARM_CODE, LONG_BREAKDOWNS, BREAKDOWN_HOURS, MEDIAN_STOP_MIN, PRECURSOR_RATE,
+REPEAT_24H_RATE, BACK_TO_RUNNING_RATE, WAITING_AFTER_RATE and PATTERN.
+
+The model must return a structured object with:
+- answer: strongest observed pattern in two sentences
+- evidence: an array of exact alarm codes and numbers
+- caveats: an array that says codes are anonymised and correlation is not cause
+- next_question: exactly one sentence starting "At the next planned stop, can
+  the team verify". It must ask for an observable alarm sequence or line state,
+  not a diagnosis or general scheduling context.
+
+Show the five deterministic rows before the generated answer. Never name a
+component, failure mode, technician finding, price or saving.

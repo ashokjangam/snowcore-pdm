@@ -1,0 +1,152 @@
+{
+  "TELEMETRY_5M": {
+    "file": "telemetry_5m.csv.gz",
+    "rows": 50782,
+    "columns": [
+      "TS",
+      "RESERVOIRS",
+      "TP3",
+      "MOTOR_CURRENT",
+      "OIL_TEMPERATURE",
+      "MPG",
+      "LPS",
+      "LOADED_RUN_MINUTES",
+      "COPILOT_FLAG",
+      "DATA_ORIGIN"
+    ],
+    "sha256": "cb1de1f59b884803d889a1ae32efc5673be9f632fa24eba31b3ef7a93b2ff38d"
+  },
+  "FAILURES": {
+    "file": "failures.csv.gz",
+    "rows": 4,
+    "columns": [
+      "FAILURE_ID",
+      "START_TS",
+      "END_TS",
+      "REPORT",
+      "REMOVAL_DEADLINE",
+      "ONSET_PRECISION",
+      "COPILOT_FIRST",
+      "COPILOT_MINUTES_AFTER_START",
+      "COPILOT_MINUTES_BEFORE_END",
+      "LPS_FIRST",
+      "LPS_MINUTES_AFTER_START"
+    ],
+    "sha256": "091d59a1b02481fe783170b2af2880cca71802990597f11ea8b7e6da3f5f00a4"
+  },
+  "FAILURE_ZOOM": {
+    "file": "failure_zoom.csv.gz",
+    "rows": 1095,
+    "columns": [
+      "FAILURE_ID",
+      "TS",
+      "LOADED",
+      "RESERVOIRS",
+      "LPS"
+    ],
+    "sha256": "104fd2c9c92d88e6295d66811f2dde7b0da576f60510f210047fea73f6502ea7"
+  },
+  "ALERTS": {
+    "file": "alerts.csv.gz",
+    "rows": 132,
+    "columns": [
+      "SOURCE",
+      "ALERT_ID",
+      "RAISED_AT",
+      "CLEARED_AT",
+      "OUTCOME",
+      "FAILURE_ID",
+      "MINUTES_AFTER_START",
+      "MINUTES_BEFORE_END",
+      "PEAK_LOADED_MINUTES"
+    ],
+    "sha256": "7eb6fc3956babcb7f2f8f22bb7a52fb2ecfb86904777e6e710ddbdd41d39c3eb"
+  },
+  "EVIDENCE": {
+    "file": "evidence.csv.gz",
+    "rows": 4,
+    "columns": [
+      "DOC_KEY",
+      "DOC_JSON"
+    ],
+    "sha256": "a3f5795eed5fb5f03ee94266a43f84b9195727955200f5d84eb6e7c2f77091c3"
+  },
+  "WORK_ORDERS": {
+    "file": "work_orders.csv.gz",
+    "rows": 41,
+    "columns": [
+      "ORDER_ID",
+      "WARNING_ID",
+      "CREATED_AT",
+      "PRIORITY",
+      "PROBLEM",
+      "ACTION",
+      "TECHNICIAN",
+      "PART",
+      "STATUS",
+      "ASSET",
+      "NOTE",
+      "DATA_ORIGIN"
+    ],
+    "sha256": "aacbbf92f404db6882dbbf443bf2619cc1f518923948d4db0164288b0e1ae106"
+  },
+  "PARTS": {
+    "file": "parts.csv.gz",
+    "rows": 6,
+    "columns": [
+      "SKU",
+      "NAME",
+      "STOCK",
+      "REORDER_AT",
+      "COST_EUR",
+      "DATA_ORIGIN"
+    ],
+    "sha256": "394f31e4465299a06ea944646d1d6b1a3415c8a1b854dcbe8ced8958bee78737"
+  },
+  "TECHNICIANS": {
+    "file": "technicians.csv.gz",
+    "rows": 6,
+    "columns": [
+      "TECHNICIAN_ID",
+      "NAME",
+      "ROLE",
+      "SHIFT",
+      "DATA_ORIGIN"
+    ],
+    "sha256": "4ca923526af361bd9dcc7e79ad04531413ed665d0caa27c0548beb42a3d640ef"
+  },
+  "DAILY_KPIS": {
+    "file": "daily_kpis.csv.gz",
+    "rows": 214,
+    "columns": [
+      "DATE",
+      "SAMPLES",
+      "TELEMETRY_COVERAGE",
+      "COMPRESSOR_RUNTIME",
+      "LOADED_TIME",
+      "TIME_UNDER_STRAIN",
+      "DATA_ORIGIN"
+    ],
+    "sha256": "348c9611e6173dae1fd04d2290289ba697b53cb53d5fb140bb1bb162f9782fc8"
+  },
+  "FACTORY_SCENARIO": {
+    "file": "factory_scenario.csv.gz",
+    "rows": 214,
+    "columns": [
+      "DATE",
+      "PLANNED_MINUTES",
+      "DOWNTIME_MINUTES",
+      "IDEAL_UNITS",
+      "TOTAL_UNITS",
+      "GOOD_UNITS",
+      "AVAILABILITY",
+      "PERFORMANCE",
+      "QUALITY",
+      "OEE",
+      "ESTIMATED_DOWNTIME_COST_EUR",
+      "DATA_ORIGIN",
+      "DISCLAIMER"
+    ],
+    "sha256": "61e90aa91fa7081831b1f0c300a26e33d7bec5ad078a146283f6b3ef1abf5bc7"
+  }
+}

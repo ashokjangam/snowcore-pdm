@@ -1,0 +1,7 @@
+{
+  "status": "NO_PROMOTION",
+  "champion": null,
+  "target": "merged alert episode within 120 minutes before a documented failure start",
+  "evaluation_origin": "OBSERVED_METROPT3",
+  "warning_feed_enabled": false
+}

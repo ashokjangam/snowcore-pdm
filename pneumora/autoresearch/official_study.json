@@ -1,0 +1,288 @@
+{
+  "study": "PNEUMORA official-protocol detection, MetroPT-3 development",
+  "target": "merged alert in [reported start - 120 min, reported end - 120 min]",
+  "protocol_source": "Veloso et al. 2022, Scientific Data 9:764, evaluation protocol",
+  "recipe": {
+    "fit_days": 21,
+    "calibration_days": 14,
+    "merge_minutes": 30,
+    "false_alert_budget_per_day": 0.14285714285714285,
+    "features": [
+      "loaded_fraction_2h",
+      "cycle_starts_2h",
+      "tp3_reservoir_gap",
+      "tp2_slope_30m",
+      "tp2_slope_120m",
+      "tp3_slope_30m",
+      "tp3_slope_120m",
+      "reservoirs_slope_30m",
+      "reservoirs_slope_120m",
+      "dv_pressure_mean_30m",
+      "dv_pressure_mean_120m",
+      "motor_current_mean_30m",
+      "motor_current_mean_120m",
+      "motor_current_std_120m",
+      "oil_temperature_mean_30m",
+      "oil_temperature_mean_120m",
+      "oil_temperature_std_120m",
+      "h1_mean_120m"
+    ]
+  },
+  "role_of_metropt3": "DEVELOPMENT (all four episodes have been seen by earlier studies)",
+  "unit": {
+    "fit_window": [
+      "2020-02-01 00:10:00",
+      "2020-02-22 00:00:00"
+    ],
+    "calibration_window": [
+      "2020-02-22 00:00:00",
+      "2020-03-07 00:00:00"
+    ],
+    "test_window": [
+      "2020-03-07 00:00:00",
+      "2020-09-01 03:55:00"
+    ],
+    "events_scored": [
+      "F01",
+      "F02",
+      "F03",
+      "F04"
+    ],
+    "lps_existing_alarm": {
+      "events": [
+        {
+          "event_id": "F01",
+          "kind": "air_leak",
+          "start": "2020-04-18 00:00:00",
+          "end": "2020-04-18 23:59:59",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        },
+        {
+          "event_id": "F02",
+          "kind": "air_leak",
+          "start": "2020-05-29 23:30:00",
+          "end": "2020-05-30 06:00:00",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        },
+        {
+          "event_id": "F03",
+          "kind": "air_leak",
+          "start": "2020-06-05 10:00:00",
+          "end": "2020-06-07 14:30:00",
+          "caught_in_time": true,
+          "first_alert": "2020-06-06 19:50:00",
+          "minutes_before_end": 1120.0,
+          "minutes_after_start": 2030.0
+        },
+        {
+          "event_id": "F04",
+          "kind": "air_leak",
+          "start": "2020-07-15 14:30:00",
+          "end": "2020-07-15 19:00:00",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        }
+      ],
+      "caught_in_time": 1,
+      "n_events": 4,
+      "merged_alerts": 114,
+      "false_alerts": 111,
+      "healthy_days": 174.18403935185185,
+      "false_alerts_per_healthy_day": 0.6372570093852281,
+      "median_minutes_before_end": 1120.0
+    }
+  },
+  "leave_one_failure_out": {
+    "folds": [
+      {
+        "held_out": "F01",
+        "chosen": "loaded_run|static|s1|p12",
+        "held_out_caught_in_time": true,
+        "held_out_minutes_before_end": 1359.9833333333333
+      },
+      {
+        "held_out": "F02",
+        "chosen": "loaded_run|static|s1|p12",
+        "held_out_caught_in_time": true,
+        "held_out_minutes_before_end": 350.0
+      },
+      {
+        "held_out": "F03",
+        "chosen": "loaded_run|static|s1|p12",
+        "held_out_caught_in_time": true,
+        "held_out_minutes_before_end": 3105.0
+      },
+      {
+        "held_out": "F04",
+        "chosen": "loaded_run|static|s1|p12",
+        "held_out_caught_in_time": true,
+        "held_out_minutes_before_end": 350.0
+      }
+    ],
+    "held_out_caught_in_time": 4
+  },
+  "final_config": "loaded_run|static|s1|p12",
+  "final_result": {
+    "events": [
+      {
+        "event_id": "F01",
+        "kind": "air_leak",
+        "start": "2020-04-18 00:00:00",
+        "end": "2020-04-18 23:59:59",
+        "caught_in_time": true,
+        "first_alert": "2020-04-18 01:20:00",
+        "minutes_before_end": 1359.9833333333333,
+        "minutes_after_start": 80.0
+      },
+      {
+        "event_id": "F02",
+        "kind": "air_leak",
+        "start": "2020-05-29 23:30:00",
+        "end": "2020-05-30 06:00:00",
+        "caught_in_time": true,
+        "first_alert": "2020-05-30 00:10:00",
+        "minutes_before_end": 350.0,
+        "minutes_after_start": 40.0
+      },
+      {
+        "event_id": "F03",
+        "kind": "air_leak",
+        "start": "2020-06-05 10:00:00",
+        "end": "2020-06-07 14:30:00",
+        "caught_in_time": true,
+        "first_alert": "2020-06-05 10:45:00",
+        "minutes_before_end": 3105.0,
+        "minutes_after_start": 45.0
+      },
+      {
+        "event_id": "F04",
+        "kind": "air_leak",
+        "start": "2020-07-15 14:30:00",
+        "end": "2020-07-15 19:00:00",
+        "caught_in_time": true,
+        "first_alert": "2020-07-15 13:10:00",
+        "minutes_before_end": 350.0,
+        "minutes_after_start": -80.0
+      }
+    ],
+    "caught_in_time": 4,
+    "n_events": 4,
+    "merged_alerts": 18,
+    "false_alerts": 12,
+    "healthy_days": 174.18403935185185,
+    "false_alerts_per_healthy_day": 0.0688926496632679,
+    "median_minutes_before_end": 854.9916666666667,
+    "threshold": 2.15
+  },
+  "random_alerter_null": {
+    "expected_catches": 0.34013802551111605,
+    "p_at_least_observed": 9.650914905984624e-06
+  },
+  "development_gates": {
+    "beats_random_alerter_p05": true,
+    "lofo_three_of_four": true,
+    "test_false_alert_budget": true,
+    "beats_existing_lps_alarm": true
+  },
+  "development_pass": true,
+  "top_configs": [
+    {
+      "config": "loaded_run|static|s1|p12",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.0688926496632679,
+      "median_minutes_before_end": 854.9916666666667
+    },
+    {
+      "config": "leak_w60|static|s1|p3",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.15500846174235278,
+      "median_minutes_before_end": 889.9916666666667
+    },
+    {
+      "config": "leak_w60|static|s1|p6",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.15500846174235278,
+      "median_minutes_before_end": 879.9916666666667
+    },
+    {
+      "config": "leak_w60|static|s1|p1",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.16074951588095845,
+      "median_minutes_before_end": 899.9916666666667
+    },
+    {
+      "config": "leak_w30|static|s1|p3",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 889.9916666666667
+    },
+    {
+      "config": "leak_w30|static|s1|p6",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 882.4916666666667
+    },
+    {
+      "config": "loaded_run|static|s1|p1",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 892.4916666666667
+    },
+    {
+      "config": "loaded_run|static|s1|p3",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 892.4916666666667
+    },
+    {
+      "config": "loaded_run|static|s1|p6",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 884.9916666666667
+    },
+    {
+      "config": "loaded_run|static|s6|p1",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 894.9916666666667
+    },
+    {
+      "config": "loaded_run|static|s6|p3",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.1664905700195641,
+      "median_minutes_before_end": 884.9916666666667
+    },
+    {
+      "config": "leak_w30|static|s1|p1",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.17223162415816975,
+      "median_minutes_before_end": 899.9916666666667
+    },
+    {
+      "config": "leak_w60|static|s12|p6",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.17797267829677543,
+      "median_minutes_before_end": 849.9916666666667
+    },
+    {
+      "config": "loaded_run|static|s12|p1",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.17797267829677543,
+      "median_minutes_before_end": 879.9916666666667
+    },
+    {
+      "config": "leak_w30|static|s12|p6",
+      "caught_in_time": 4,
+      "false_alerts_per_healthy_day": 0.18945478657398673,
+      "median_minutes_before_end": 854.9916666666667
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "frozen_before_external_data_was_loaded": true,
+  "frozen_on": "2026-10-01",
+  "detector": "loaded_run|static|s1|p12",
+  "detector_plain": "Alert when the compressor stays loaded (COMP == 0) continuously and the 5-minute maximum loaded-run length stays above the unit-calibrated threshold for 12 consecutive 5-minute bins (about one hour).",
+  "development_source": "MetroPT-3 (UCI 791); all four air-leak reports used for development",
+  "development_threshold_minutes": 2.15,
+  "recipe": {
+    "resample": "5 minutes",
+    "fit_days": 21,
+    "calibration_days": 14,
+    "threshold_rule": "lowest threshold whose merged alerts in the calibration window are <= 1 per 7 days",
+    "merge_rule": "an alert episode ends once flags stop for more than 30 minutes",
+    "labels_used_to_fit_or_calibrate": false
+  },
+  "target": "merged alert in [reported start - 120 min, reported end - 120 min] (Veloso et al. 2022 protocol plus the operator's two-hour removal need)",
+  "external_events": {
+    "METROPT_2022_ZENODO_6854240": [
+      {"event_id": "E1", "kind": "air_leak", "component": "clients", "start": "2022-02-28 21:53:00", "end": "2022-03-01 02:00:00"},
+      {"event_id": "E2", "kind": "air_leak", "component": "air dryer", "start": "2022-03-23 14:54:00", "end": "2022-03-23 15:24:00"},
+      {"event_id": "E3", "kind": "oil_leak", "component": "compressor", "start": "2022-05-30 12:00:00", "end": "2022-06-02 12:00:00"}
+    ],
+    "METROPT2_ZENODO_7766691": [
+      {"event_id": "X1", "kind": "air_leak", "component": "unspecified", "start": "2022-06-04 10:19:24", "end": "2022-06-04 14:22:39"},
+      {"event_id": "X2", "kind": "oil_leak", "component": "unspecified", "start": "2022-07-11 10:10:18", "end": "2022-07-14 10:22:08"}
+    ]
+  },
+  "promotion_gates_external": {
+    "air_leaks_caught_in_time": ">= 2 of the external air leaks scored after calibration",
+    "pooled_false_alerts_per_healthy_day": "<= 1/7",
+    "beats_existing_lps_alarm_on_air_leaks": "more air leaks caught in time, or equal with >= 30 min more median margin before end",
+    "random_alerter_null_all_events": "p < 0.05"
+  },
+  "reported_not_gating": [
+    "oil leaks caught in time (different failure mechanism)",
+    "transferred MetroPT-3 threshold of 2.15 instead of per-unit calibration"
+  ],
+  "rules": [
+    "No recipe, threshold rule, gate or window may change after external data is loaded.",
+    "Events that fall before a unit's calibration end are excluded and listed.",
+    "If any gate fails, the status is NO_PROMOTION and is reported as such."
+  ]
+}

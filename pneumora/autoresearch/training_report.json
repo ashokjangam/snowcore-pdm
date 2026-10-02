@@ -1,0 +1,162 @@
+{
+  "decision": {
+    "status": "NO_PROMOTION",
+    "champion": null,
+    "wrong_physics_control_matches": false,
+    "observed_test_episodes": 4
+  },
+  "split": {
+    "fit": "February",
+    "calibration": "March",
+    "observed_test": "April-July"
+  },
+  "target": "merged alert episode within 120 minutes before a documented failure start",
+  "trained_rows": {
+    "february_feature_windows": 7153,
+    "synthetic_training_rows_diagnostic_refit": 3576,
+    "calibration_synthetic_rows": 0,
+    "test_synthetic_rows": 0
+  },
+  "arms": [
+    {
+      "name": "lps_existing_alarm",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.18281154360590327,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.1297735721527543
+    },
+    {
+      "name": "duty_cycle_rule",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.07181882070231914,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.1297735721527543
+    },
+    {
+      "name": "cycle_pressure_rule",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.08487678810274081,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.1297735721527543
+    },
+    {
+      "name": "isolation_forest",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.0065289837002108315,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.1297735721527543
+    },
+    {
+      "name": "pca_residual",
+      "episodes_warned": 2,
+      "false_alerts_per_day": 1.5016662510484913,
+      "median_lead_minutes": 2.5,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.09733017911456573
+    },
+    {
+      "name": "compact_autoencoder",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.03917390220126499,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.09733017911456573
+    },
+    {
+      "name": "physics_synthetic_gbdt",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.03264491850105416,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.03244339303818858
+    },
+    {
+      "name": "wrong_physics_control",
+      "episodes_warned": 0,
+      "false_alerts_per_day": 0.08487678810274081,
+      "median_lead_minutes": null,
+      "gates_pass": false,
+      "calibration_alerts_per_day": 0.1297735721527543
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "loaded_fraction_2h",
+      "importance": 0.21059724047806383
+    },
+    {
+      "feature": "motor_current_mean_120m",
+      "importance": 0.1917729789070882
+    },
+    {
+      "feature": "cycle_starts_2h",
+      "importance": 0.002804520896093335
+    },
+    {
+      "feature": "tp3_reservoir_gap",
+      "importance": 0.0011012519331091495
+    },
+    {
+      "feature": "oil_temperature_mean_30m",
+      "importance": 0.0007571166534606658
+    },
+    {
+      "feature": "tp2_slope_30m",
+      "importance": 0.00033443555688760857
+    },
+    {
+      "feature": "motor_current_mean_30m",
+      "importance": 0.00011650530929356064
+    },
+    {
+      "feature": "tp3_slope_30m",
+      "importance": 9.413428736313592e-05
+    },
+    {
+      "feature": "dv_pressure_mean_30m",
+      "importance": 6.840710970374416e-05
+    },
+    {
+      "feature": "motor_current_std_120m",
+      "importance": 3.45165182878405e-05
+    },
+    {
+      "feature": "dv_pressure_mean_120m",
+      "importance": -1.6947798448280046e-05
+    },
+    {
+      "feature": "h1_mean_120m",
+      "importance": 7.584902809515725e-06
+    },
+    {
+      "feature": "reservoirs_slope_30m",
+      "importance": 1.0988240326153587e-06
+    },
+    {
+      "feature": "tp3_slope_120m",
+      "importance": 2.531769441235031e-07
+    },
+    {
+      "feature": "reservoirs_slope_120m",
+      "importance": 2.0780117933386067e-07
+    },
+    {
+      "feature": "oil_temperature_mean_120m",
+      "importance": 1.4430364928325252e-07
+    },
+    {
+      "feature": "tp2_slope_120m",
+      "importance": 1.1344970502900393e-07
+    },
+    {
+      "feature": "oil_temperature_std_120m",
+      "importance": 4.561711214915939e-08
+    }
+  ],
+  "simulator_passed": true,
+  "note": "Importance is a diagnostic from the synthetic-trained booster. It is not a promoted model."
+}

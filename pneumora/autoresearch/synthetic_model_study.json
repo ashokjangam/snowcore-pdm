@@ -1,0 +1,301 @@
+{
+  "study": "PNEUMORA synthetic-trained leak model, nine real failures",
+  "declared_gates": {
+    "caught_beats_lps": "catches > LPS catches on the nine real failures, or equal with >= 30 min more median margin",
+    "air_leaks_not_worse_than_lps": "air-leak catches >= LPS air-leak catches",
+    "false_alert_budget": "pooled false alerts per healthy day <= 1/7",
+    "random_null": "random alerter at the same rate matches the catches with p < 0.05",
+    "beats_wrong_physics_control": "catches > wrong-physics control catches"
+  },
+  "training": "Healthy fit-window rows of all three units plus SYNTHETIC_TRAINING_ONLY leak episodes; no real failure labels.",
+  "caveat": "The generator encodes leak physics learned by inspecting MetroPT-3 failures, and all nine real failures were scored in earlier studies.",
+  "model": {
+    "per_unit": {
+      "METROPT3_UCI_791": {
+        "events": [
+          {
+            "event_id": "F01",
+            "kind": "air_leak",
+            "start": "2020-04-18 00:00:00",
+            "end": "2020-04-18 23:59:59",
+            "caught_in_time": true,
+            "first_alert": "2020-04-18 01:40:00",
+            "minutes_before_end": 1339.9833333333333,
+            "minutes_after_start": 100.0
+          },
+          {
+            "event_id": "F02",
+            "kind": "air_leak",
+            "start": "2020-05-29 23:30:00",
+            "end": "2020-05-30 06:00:00",
+            "caught_in_time": true,
+            "first_alert": "2020-05-30 00:35:00",
+            "minutes_before_end": 325.0,
+            "minutes_after_start": 65.0
+          },
+          {
+            "event_id": "F03",
+            "kind": "air_leak",
+            "start": "2020-06-05 10:00:00",
+            "end": "2020-06-07 14:30:00",
+            "caught_in_time": true,
+            "first_alert": "2020-06-05 10:15:00",
+            "minutes_before_end": 3135.0,
+            "minutes_after_start": 15.0
+          },
+          {
+            "event_id": "F04",
+            "kind": "air_leak",
+            "start": "2020-07-15 14:30:00",
+            "end": "2020-07-15 19:00:00",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          }
+        ],
+        "caught_in_time": 3,
+        "n_events": 4,
+        "merged_alerts": 53,
+        "false_alerts": 48,
+        "healthy_days": 174.18403935185185,
+        "false_alerts_per_healthy_day": 0.2755705986530716,
+        "median_minutes_before_end": 1339.9833333333333,
+        "threshold": 0.0026844120812495363
+      },
+      "METROPT_2022_ZENODO_6854240": {
+        "events": [
+          {
+            "event_id": "E1",
+            "kind": "air_leak",
+            "start": "2022-02-28 21:53:00",
+            "end": "2022-03-01 02:00:00",
+            "caught_in_time": true,
+            "first_alert": "2022-02-28 23:25:00",
+            "minutes_before_end": 155.0,
+            "minutes_after_start": 92.0
+          },
+          {
+            "event_id": "E2",
+            "kind": "air_leak",
+            "start": "2022-03-23 14:54:00",
+            "end": "2022-03-23 15:24:00",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          },
+          {
+            "event_id": "E3",
+            "kind": "oil_leak",
+            "start": "2022-05-30 12:00:00",
+            "end": "2022-06-02 12:00:00",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          }
+        ],
+        "caught_in_time": 1,
+        "n_events": 3,
+        "merged_alerts": 125,
+        "false_alerts": 124,
+        "healthy_days": 114.21388888888889,
+        "false_alerts_per_healthy_day": 1.08568232118102,
+        "median_minutes_before_end": 155.0,
+        "threshold": 0.0011851565836790404
+      },
+      "METROPT2_ZENODO_7766691": {
+        "events": [
+          {
+            "event_id": "X1",
+            "kind": "air_leak",
+            "start": "2022-06-04 10:19:24",
+            "end": "2022-06-04 14:22:39",
+            "caught_in_time": true,
+            "first_alert": "2022-06-04 11:45:00",
+            "minutes_before_end": 157.65,
+            "minutes_after_start": 85.6
+          },
+          {
+            "event_id": "X2",
+            "kind": "oil_leak",
+            "start": "2022-07-11 10:10:18",
+            "end": "2022-07-14 10:22:08",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          }
+        ],
+        "caught_in_time": 1,
+        "n_events": 2,
+        "merged_alerts": 19,
+        "false_alerts": 18,
+        "healthy_days": 53.170081018518516,
+        "false_alerts_per_healthy_day": 0.33853625300534734,
+        "median_minutes_before_end": 157.65,
+        "threshold": 0.0007895205316863746
+      }
+    },
+    "caught": 5,
+    "air_caught": 5,
+    "events": 9,
+    "false_alerts": 190,
+    "false_per_day": 0.5562581824101241,
+    "median_margin": 325.0,
+    "null_p": 0.041150544100696684
+  },
+  "wrong_physics_control": {
+    "per_unit": {
+      "METROPT3_UCI_791": {
+        "events": [
+          {
+            "event_id": "F01",
+            "kind": "air_leak",
+            "start": "2020-04-18 00:00:00",
+            "end": "2020-04-18 23:59:59",
+            "caught_in_time": true,
+            "first_alert": "2020-04-18 00:45:00",
+            "minutes_before_end": 1394.9833333333333,
+            "minutes_after_start": 45.0
+          },
+          {
+            "event_id": "F02",
+            "kind": "air_leak",
+            "start": "2020-05-29 23:30:00",
+            "end": "2020-05-30 06:00:00",
+            "caught_in_time": true,
+            "first_alert": "2020-05-30 00:35:00",
+            "minutes_before_end": 325.0,
+            "minutes_after_start": 65.0
+          },
+          {
+            "event_id": "F03",
+            "kind": "air_leak",
+            "start": "2020-06-05 10:00:00",
+            "end": "2020-06-07 14:30:00",
+            "caught_in_time": true,
+            "first_alert": "2020-06-05 11:10:00",
+            "minutes_before_end": 3080.0,
+            "minutes_after_start": 70.0
+          },
+          {
+            "event_id": "F04",
+            "kind": "air_leak",
+            "start": "2020-07-15 14:30:00",
+            "end": "2020-07-15 19:00:00",
+            "caught_in_time": true,
+            "first_alert": "2020-07-15 15:50:00",
+            "minutes_before_end": 190.0,
+            "minutes_after_start": 80.0
+          }
+        ],
+        "caught_in_time": 4,
+        "n_events": 4,
+        "merged_alerts": 29,
+        "false_alerts": 23,
+        "healthy_days": 174.18403935185185,
+        "false_alerts_per_healthy_day": 0.13204424518793015,
+        "median_minutes_before_end": 859.9916666666667,
+        "threshold": 0.0015752291390909968
+      },
+      "METROPT_2022_ZENODO_6854240": {
+        "events": [
+          {
+            "event_id": "E1",
+            "kind": "air_leak",
+            "start": "2022-02-28 21:53:00",
+            "end": "2022-03-01 02:00:00",
+            "caught_in_time": true,
+            "first_alert": "2022-02-28 23:35:00",
+            "minutes_before_end": 145.0,
+            "minutes_after_start": 102.0
+          },
+          {
+            "event_id": "E2",
+            "kind": "air_leak",
+            "start": "2022-03-23 14:54:00",
+            "end": "2022-03-23 15:24:00",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          },
+          {
+            "event_id": "E3",
+            "kind": "oil_leak",
+            "start": "2022-05-30 12:00:00",
+            "end": "2022-06-02 12:00:00",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          }
+        ],
+        "caught_in_time": 1,
+        "n_events": 3,
+        "merged_alerts": 1,
+        "false_alerts": 0,
+        "healthy_days": 114.21388888888889,
+        "false_alerts_per_healthy_day": 0.0,
+        "median_minutes_before_end": 145.0,
+        "threshold": 0.004716375591040537
+      },
+      "METROPT2_ZENODO_7766691": {
+        "events": [
+          {
+            "event_id": "X1",
+            "kind": "air_leak",
+            "start": "2022-06-04 10:19:24",
+            "end": "2022-06-04 14:22:39",
+            "caught_in_time": true,
+            "first_alert": "2022-06-04 12:10:00",
+            "minutes_before_end": 132.65,
+            "minutes_after_start": 110.6
+          },
+          {
+            "event_id": "X2",
+            "kind": "oil_leak",
+            "start": "2022-07-11 10:10:18",
+            "end": "2022-07-14 10:22:08",
+            "caught_in_time": false,
+            "first_alert": null,
+            "minutes_before_end": null,
+            "minutes_after_start": null
+          }
+        ],
+        "caught_in_time": 1,
+        "n_events": 2,
+        "merged_alerts": 1,
+        "false_alerts": 0,
+        "healthy_days": 53.170081018518516,
+        "false_alerts_per_healthy_day": 0.0,
+        "median_minutes_before_end": 132.65,
+        "threshold": 0.002222377631804311
+      }
+    },
+    "caught": 6,
+    "air_caught": 6,
+    "events": 9,
+    "false_alerts": 23,
+    "false_per_day": 0.06733651681806765,
+    "median_margin": 257.5,
+    "null_p": 1.2021635015179238e-07
+  },
+  "lps": {
+    "caught": 5,
+    "air_caught": 3,
+    "false_alerts": 168,
+    "false_per_day": 0.49184934023632026,
+    "median_margin": 345.0
+  },
+  "gates": {
+    "caught_beats_lps": false,
+    "air_leaks_not_worse_than_lps": true,
+    "false_alert_budget": false,
+    "random_null": true,
+    "beats_wrong_physics_control": false
+  },
+  "status": "NO_PROMOTION"
+}

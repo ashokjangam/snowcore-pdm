@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hackathon judge · SNOWCORE vs PNEUMORA</title>
+  <style>
+    :root{--bg:#0a0e14;--panel:#111823;--panel2:#162030;--line:#243044;--text:#dfe7f1;--muted:#8b9bb0;--teal:#2dd4bf;--amber:#f5b942;--red:#f06a6a;--blue:#5aa9ff;--violet:#a78bfa;--mono:'Cascadia Code','Consolas',monospace}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.58 'Segoe UI',system-ui,sans-serif}
+    a{color:var(--blue)}code{font-family:var(--mono);background:#1a2433;padding:1px 5px;border-radius:4px;font-size:.88em;color:#cfe3ff}
+    .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+    nav{position:sticky;top:0;height:100vh;overflow:auto;background:#0c121b;border-right:1px solid var(--line);padding:18px 14px}
+    nav .brand{font-weight:700;letter-spacing:.05em;font-size:13px;color:var(--amber);text-transform:uppercase}
+    nav .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+    nav a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:5px 8px;border-radius:6px}
+    nav a:hover{background:var(--panel2);color:var(--text)}
+    main{padding:30px 44px 80px;max-width:1280px}
+    section{padding:28px 0 10px}h1{font-size:31px;margin:0 0 6px}h2{font-size:23px;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}h3{font-size:17px;margin:18px 0 8px}
+    .lede{font-size:17px;color:var(--muted);max-width:950px}
+    .grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card,.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 17px}
+    .tile .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}.tile .v{font-size:28px;font-weight:700}.tile .n{font-size:12.5px;color:var(--muted)}
+    .plain,.warn,.bad{padding:11px 14px;border-radius:0 8px 8px 0;margin:12px 0}.plain{border-left:3px solid var(--teal);background:#0f1b1c}.warn{border-left:3px solid var(--amber);background:#1d170b}.bad{border-left:3px solid var(--red);background:#1e1012}
+    .plain b.t{color:var(--teal)}.warn b.t{color:var(--amber)}.bad b.t{color:var(--red)}
+    table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}th,td{border-bottom:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}th{color:var(--muted);font-size:11px;text-transform:uppercase;background:#0e1520}.num{text-align:right;white-space:nowrap}
+    .bar{height:8px;background:#202b3c;border-radius:10px;overflow:hidden;margin-top:5px}.bar i{display:block;height:100%;background:var(--blue)}.bar.amber i{background:var(--amber)}
+    .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;border-radius:99px;padding:2px 7px;margin-right:5px}.now{background:#12324a;color:#8ecbff}.next{background:#382b0d;color:#ffd46e}.later{background:#14362f;color:#6ee7cf}.no{background:#3a1518;color:#ff9b9b}
+    .steps{counter-reset:step}.step{position:relative;padding:0 0 20px 48px}.step:before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line);font-weight:700;color:var(--amber)}
+    ul{padding-left:20px}li{margin:5px 0}.muted{color:var(--muted);font-size:12.5px}
+    @media(max-width:900px){.layout{grid-template-columns:1fr}nav{display:none}main{padding:22px 18px}.g2,.g3{grid-template-columns:1fr}}
+    @media print{nav{display:none}.layout{display:block}body{background:white;color:#111}main{max-width:none}.card,.tile{break-inside:avoid}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand">Hackathon judge</div>
+    <div class="sub">SNOWCORE vs PNEUMORA · 1 Oct 2026</div>
+    <a href="#verdict">1 · Verdict</a>
+    <a href="#scores">2 · Independent scores</a>
+    <a href="#truth">3 · What each really does</a>
+    <a href="#pursue">4 · What is worth pursuing</a>
+    <a href="#plan">5 · Enhancement plan</a>
+    <a href="#snowflake">6 · Snowflake-native path</a>
+    <a href="#limits">7 · What this will not fix</a>
+    <a href="#pitch">8 · Honest final pitch</a>
+  </nav>
+  <main>
+    <section id="verdict">
+      <h1>Hackathon judge: what to pursue next</h1>
+      <p class="lede">Two independent LLM judges assessed one submission each against the written Predictive Maintenance and OEE Command Center brief. Neither judge saw the other product. Both declined to advance its submission.</p>
+      <div class="grid g3">
+        <div class="tile"><div class="k">SNOWCORE</div><div class="v" style="color:var(--red)">Do not advance as-is</div><div class="n">Strong Snowflake shape; the trained model does not drive the operator workflow and all business data is generated.</div></div>
+        <div class="tile"><div class="k">PNEUMORA</div><div class="v" style="color:var(--red)">Do not advance as-is</div><div class="n">Stronger evidence and observed OT data; it detects most leaks after onset and its ERP/OEE context is synthetic.</div></div>
+        <div class="tile"><div class="k">Recommended direction</div><div class="v" style="color:var(--teal)">Hybrid</div><div class="n">SNOWCORE platform + PNEUMORA evidence discipline + a dataset that supports genuine before-onset prediction.</div></div>
+      </div>
+      <div class="warn"><b class="t">Do not choose by total score.</b> The totals are 35 for SNOWCORE and 36 for PNEUMORA after the Snowflake bonus. A one-point difference between two one-pass judges is noise, not a winner.</div>
+      <div class="plain"><b class="t">Decision.</b> If the deadline is immediate, pursue <b>SNOWCORE as the submission shell</b> because it already has the native Snowflake architecture, semantic layer and command-center breadth. Replace its prediction and action path with tested evidence, not generated claims. Preserve PNEUMORA as the reference implementation for data provenance, leakage-safe evaluation, controls and honest promotion gates.</div>
+    </section>
+
+    <section id="scores">
+      <h2>Independent scores</h2>
+      <p class="muted">0–10; a score of 8 means the requirement is met. Snowflake bonus is 0–5.</p>
+      <table>
+        <thead><tr><th>Criterion</th><th class="num">SNOWCORE</th><th class="num">PNEUMORA</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Real-world relevance</td><td class="num">5<div class="bar"><i style="width:50%"></i></div></td><td class="num">6<div class="bar amber"><i style="width:60%"></i></div></td><td>Both label limitations honestly. PNEUMORA has observed compressor telemetry; neither has real ERP/OEE operations.</td></tr>
+          <tr><td>Technical execution</td><td class="num">5<div class="bar"><i style="width:50%"></i></div></td><td class="num">8<div class="bar amber"><i style="width:80%"></i></div></td><td>PNEUMORA has frozen tests, held-out compressors and no-promotion gates. SNOWCORE has real Snowflake ML SQL but no automated tests or stored metric artifact.</td></tr>
+          <tr><td>Sensor / ERP correlation</td><td class="num">5<div class="bar"><i style="width:50%"></i></div></td><td class="num">3<div class="bar amber"><i style="width:30%"></i></div></td><td>SNOWCORE joins generated telemetry to generated maintenance. PNEUMORA joins real sensors to failure windows, but technicians and parts are invented. Neither is real IT/OT convergence.</td></tr>
+          <tr><td>Predict before onset</td><td class="num">4<div class="bar"><i style="width:40%"></i></div></td><td class="num">4<div class="bar amber"><i style="width:40%"></i></div></td><td>SNOWCORE does not serve its 7-day model in the UI. PNEUMORA's external alerts arrive 72–86 minutes after leak start.</td></tr>
+          <tr><td>Natural-language root cause</td><td class="num">5<div class="bar"><i style="width:50%"></i></div></td><td class="num">3<div class="bar amber"><i style="width:30%"></i></div></td><td>SNOWCORE has Cortex Analyst but unmeasured answer quality. PNEUMORA uses fixed explanations.</td></tr>
+          <tr><td>Command center and action</td><td class="num">4<div class="bar"><i style="width:40%"></i></div></td><td class="num">6<div class="bar amber"><i style="width:60%"></i></div></td><td>SNOWCORE's work-order button is a toast. PNEUMORA writes local demonstration orders, while its Snowflake app is read-only.</td></tr>
+          <tr><td>Measured OEE lift</td><td class="num">3<div class="bar"><i style="width:30%"></i></div></td><td class="num">3<div class="bar amber"><i style="width:30%"></i></div></td><td>Both display OEE from assumptions. Neither measures the change caused by acting on predictions.</td></tr>
+          <tr><td>Snowflake-native bonus, 0–5</td><td class="num">4</td><td class="num">3</td><td>SNOWCORE trains with Snowflake ML and has Cortex/semantic objects, but does not serve the model. PNEUMORA hosts precomputed data and Streamlit in Snowflake.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="truth">
+      <h2>What each solution actually does</h2>
+      <div class="grid g2">
+        <div class="card">
+          <h3>SNOWCORE</h3>
+          <ul>
+            <li>Trains a real <code>SNOWFLAKE.ML.CLASSIFICATION</code> model on a synthetic 1–7 day failure label.</li>
+            <li>Claims chronological holdout AUC 0.766 and, at threshold 0.05, recall 88.3% with precision 26.4%.</li>
+            <li>The command center never calls that model. Its shown risk is a current-health formula.</li>
+            <li>Telemetry, work orders, ERP-like dimensions, production and OEE are generated by SQL.</li>
+            <li>“Create work order” displays a toast and does not persist an order.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>PNEUMORA</h3>
+          <ul>
+            <li>Uses observed public MetroPT compressor telemetry and published failure windows.</li>
+            <li>No predictive model is promoted: <code>NO_PROMOTION</code>.</li>
+            <li>External detector catches 2 of 3 air leaks, 72 and 86 minutes after onset, with one false alert over 167 healthy days.</li>
+            <li>The existing alarm catches the same two external leaks 15–20 minutes earlier, but with 57 false alerts.</li>
+            <li>Maintenance, production and OEE context are clearly labelled synthetic.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="pursue">
+      <h2>What is worth pursuing</h2>
+      <table>
+        <thead><tr><th>Keep</th><th>From</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Snowflake-native medallion schema, Streamlit app, semantic view and Cortex Analyst</td><td>SNOWCORE</td><td>These directly earn technical-execution and native-feature credit.</td></tr>
+          <tr><td>Observed OT data, provenance labels, chronological splits, frozen tests, external test and promotion gates</td><td>PNEUMORA</td><td>These make the evidence defensible and prevent marketing a failed model.</td></tr>
+          <tr><td>Persistent triage workflow: alert → draft order → assign → parts → complete → outcome</td><td>PNEUMORA local app</td><td>The hackathon asks for action, not only charts.</td></tr>
+          <tr><td>Cost-sensitive threshold selection</td><td>SNOWCORE</td><td>Useful when costs are real or explicitly declared scenario assumptions.</td></tr>
+          <tr><td>A new run-to-failure or plant dataset with real pre-onset covariates, work-order timestamps and production counts</td><td>Acquire</td><td>Neither current dataset can prove all three headline requirements.</td></tr>
+        </tbody>
+      </table>
+      <div class="bad"><b class="t">Do not pursue:</b> more tuning of PNEUMORA's nine failures, calling its 60-minute persistence “lead time,” presenting SNOWCORE's synthetic dollar savings as measured value, or adding Snowflake ML merely for a badge. Those changes improve presentation without fixing the evidence.</div>
+    </section>
+
+    <section id="plan">
+      <h2>Enhancement plan</h2>
+      <div class="steps">
+        <div class="step">
+          <h3><span class="tag now">NOW</span> Serve one real prediction path end to end</h3>
+          <p>Write model scores to a versioned Snowflake table with <code>model_version</code>, <code>scored_at</code>, horizon, threshold, confidence and top contributing features. Make every command-center risk card read that table. Remove the separate health-score probability.</p>
+          <p><b>Acceptance:</b> one asset and timestamp can be traced from raw signals → features → model score → alert → operator action.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag now">NOW</span> Make action real</h3>
+          <p>Replace the toast with a Snowflake stored procedure or transactional write to <code>WORK_ORDERS</code>. Enforce idempotency so one alert cannot open duplicate orders. Record acknowledgement, assignee, parts, status, completion, disposition and whether the alert was useful.</p>
+          <p><b>Acceptance:</b> pressing Create changes a table and the change survives reload.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag now">NOW</span> Separate forecast, detection and safety alarm</h3>
+          <p>Show three distinct lanes: predicted failure before onset, developing-fault detection after onset, and reactive safety alarm. Score all timings against failure <b>start</b> and also report time remaining before operational removal. Never combine those metrics.</p>
+          <p><b>Acceptance:</b> every alert says “forecast,” “detection,” or “reactive,” with signed minutes versus onset.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag next">NEXT</span> Put training, scoring and monitoring in Snowflake</h3>
+          <p>Land observed telemetry in dynamic tables or incremental transforms; build point-in-time-correct features; train Snowflake ML on a chronological split; schedule scoring with Streams and Tasks; store performance and drift metrics. Keep a frozen holdout that is never used for threshold selection.</p>
+          <p><b>Acceptance:</b> a task retrains only when approved, another scores new rows, and a registry table ties every score to its training data and metric artifact.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag next">NEXT</span> Add evidence-backed natural-language RCA</h3>
+          <p>Give Cortex a semantic view over score explanations, recent sensor deviations, maintenance history, similar past failures, parts and manuals. Require answers to cite rows/documents and distinguish observed evidence from hypotheses.</p>
+          <p><b>Acceptance:</b> test 15 fixed questions; score factuality, citation validity and abstention when evidence is missing.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag later">DATA</span> Replace assumed business context</h3>
+          <p>Ingest a real CMMS/ERP extract: asset, order, failure mode, opened/completed timestamps, labour and parts. Add production counts, ideal cycle time, planned time, downtime and rejects. If real data is unavailable, state “scenario” everywhere and do not call the result measured savings or OEE lift.</p>
+          <p><b>Acceptance:</b> every business metric has a source identifier and lineage to a non-generated record.</p>
+        </div>
+        <div class="step">
+          <h3><span class="tag later">MEASURE</span> Prove OEE lift, not an OEE chart</h3>
+          <p>Compute Availability × Performance × Quality from production records. Compare treated alerts with a predeclared baseline using matched assets/time windows. Report avoided downtime and confidence intervals; do not annualise a synthetic holdout as realised savings.</p>
+          <p><b>Acceptance:</b> show baseline OEE, post-action OEE, sample size, method and uncertainty.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="snowflake">
+      <h2>Snowflake-native architecture worth building</h2>
+      <div class="grid g3">
+        <div class="card"><h3>Ingest and govern</h3><p>Snowpipe Streaming or staged loads → raw immutable tables → dynamic tables for aligned OT/IT events. Add tags, row access, quality checks and lineage.</p></div>
+        <div class="card"><h3>Predict and monitor</h3><p>Snowflake ML training and model registry → scheduled scores → alert table → metric and drift tables. The UI reads persisted model outputs, never a second formula.</p></div>
+        <div class="card"><h3>Explain and act</h3><p>Cortex Analyst/Search over governed evidence → cited RCA → procedure-backed work-order creation → outcome feedback for evaluation.</p></div>
+      </div>
+      <p class="muted">Training the existing PNEUMORA rule in Snowflake alone is not enough. The limiting factor is target/data suitability, not where the same model runs.</p>
+    </section>
+
+    <section id="limits">
+      <h2>What the short plan will not achieve</h2>
+      <ul>
+        <li><b>Wiring SNOWCORE's current model into the UI</b> improves completeness but does not make synthetic evidence real.</li>
+        <li><b>Moving PNEUMORA training into Snowflake</b> improves native-feature credit but does not turn post-onset detection into a forecast.</li>
+        <li><b>Adding an LLM explanation</b> does not prove root cause unless it cites maintenance and sensor evidence.</li>
+        <li><b>Displaying work orders</b> is not automation unless the action is persisted, governed and auditable.</li>
+        <li><b>Showing OEE</b> is not lifting OEE. A lift claim needs production records and an evaluation design.</li>
+      </ul>
+      <div class="warn"><b class="t">Genuinely unknowable without new data:</b> whether either approach will predict real plant failures early enough, its production false-alert rate, causal OEE lift and realised savings. No amount of UI work can answer those questions.</div>
+    </section>
+
+    <section id="pitch">
+      <h2>Brief, honest pitch after enhancement</h2>
+      <div class="plain"><b class="t">Suggested pitch.</b> “We built a Snowflake-native command center that aligns OT telemetry with maintenance and production events, scores a versioned failure model, explains each alert from governed evidence, and creates an auditable work order. We distinguish forecasts from developing-fault detection and safety alarms. On the frozen chronological holdout, the model achieved [measured values]; on production data, OEE impact is [measured / not yet measured].”</div>
+      <p class="muted">Replace bracketed text only with stored, reproducible results. If the business data remains synthetic, say “demonstration scenario” in the pitch.</p>
+      <h3>Sources reviewed</h3>
+      <p class="muted">Independent SNOWCORE and PNEUMORA repository reviews; root SQL, Streamlit, README and findings; PNEUMORA model card, result JSON, tests, SQL and app. Review date: 1 October 2026. The scores are LLM judgments, not an official hackathon panel result.</p>
+    </section>
+  </main>
+</div>
+</body>
+</html>

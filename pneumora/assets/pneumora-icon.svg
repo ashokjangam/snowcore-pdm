@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">PNEUMORA icon</title>
+  <desc id="desc">Pressure-contour icon for PNEUMORA.</desc>
+  <g transform="translate(12 12)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M118 12C58 12 11 59 11 120C11 181 58 228 118 228C162 228 200 205 218 168" stroke="#182126" stroke-width="16"/>
+    <path d="M118 42C75 42 42 77 42 120C42 164 75 198 118 198C149 198 176 180 188 154" stroke="#39A9DB" stroke-width="12"/>
+    <path d="M118 74C93 74 73 95 73 120C73 146 93 166 118 166C136 166 151 156 159 139" stroke="#182126" stroke-width="9"/>
+    <path d="M118 120H229" stroke="#C77B50" stroke-width="8"/>
+    <circle cx="118" cy="120" r="10" fill="#39A9DB" stroke="none"/>
+    <circle cx="229" cy="120" r="7" fill="#C77B50" stroke="none"/>
+  </g>
+</svg>

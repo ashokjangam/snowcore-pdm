@@ -1,0 +1,247 @@
+/* ============================================================================
+   Automatic planned work orders from the 4-hour breakdown warning.
+
+   Rule: when a line-hour is in the top 10% of warning scores, raise one
+   PLANNED inspection order. THRESHOLD_SCOPE='LINE' (default) ranks each line
+   against its own hours; 'FLEET' uses one fleet-wide cut, which sends almost
+   every order to the worst line. Flagged hours on the same line that are no
+   more than COOLDOWN_HOURS apart belong to one risk episode and share one
+   order, so a long high-risk stretch does not flood the planner.
+
+   A hit rate means little on its own: a line that breaks down most hours
+   will "confirm" most orders by chance. Every hit rate is therefore shown
+   beside the rate a random hour on the same lines would achieve.
+
+   Each order carries its evidence (score, current downtime, long breakdowns
+   in the last 24 h, the alarm with most downtime in the last 4 h, and the
+   stock state of that alarm's generic service kit) and a back-tested outcome:
+   did a real breakdown of 10+ minutes start within 4 hours of issue?
+
+   Honest limits:
+   - This is a replay over the December 2021 holdout, not a live feed; the
+     data ends 2022-01-01, so no scheduled Task is created.
+   - The top-10% threshold is taken from the holdout score distribution. A
+     live system would have to fix the threshold in advance.
+   - Orders and kits are SYNTHETIC_IT; the stock state is the single current
+     scenario snapshot, not the stock level on the day of the order.
+   - The procedure is idempotent: it replaces all AUTO_FROM_RISK rows.
+   ========================================================================== */
+
+USE ROLE ACCOUNTADMIN;
+USE DATABASE SNOWCORE_REAL;
+USE WAREHOUSE COMPUTE_WH;
+ALTER SESSION SET TIMEZONE = 'UTC';
+ALTER SESSION SET QUERY_TAG = 'snowcore-real|piade|risk-work-orders';
+
+CREATE OR REPLACE TABLE GOLD.RISK_WORK_ORDER (
+  RISK_WORK_ORDER_ID      STRING,
+  PLANT_CODE              STRING,
+  MACHINE_KEY             STRING,
+  MACHINE_CODE            STRING,
+  TRIGGER_HOUR            TIMESTAMP_NTZ,
+  ISSUED_AT               TIMESTAMP_NTZ,
+  EPISODE_LAST_FLAG_HOUR  TIMESTAMP_NTZ,
+  EPISODE_FLAGGED_HOURS   NUMBER,
+  OPEN_UNTIL              TIMESTAMP_NTZ,
+  ORDER_TYPE              STRING,
+  PRIORITY                STRING,
+  STATUS                  STRING,
+  FAILURE_SCORE           FLOAT,
+  FAILURE_PERCENTILE      FLOAT,
+  FLAG_THRESHOLD_SCORE    FLOAT,
+  THRESHOLD_SCOPE         STRING,
+  LINE_BASE_RATE          FLOAT,
+  CURRENT_DOWNTIME_PCT    FLOAT,
+  LONG_BREAKDOWNS_24H     NUMBER,
+  TOP_RECENT_ALARM        STRING,
+  RECENT_ALARM_MINUTES    FLOAT,
+  MATERIAL_ID             STRING,
+  STOCK_STATE             STRING,
+  EVIDENCE                STRING,
+  RECOMMENDED_ACTION      STRING,
+  OUTCOME                 STRING,
+  LEAD_TIME_MIN           NUMBER,
+  BREAKDOWNS_WHILE_OPEN   NUMBER,
+  COOLDOWN_HOURS          NUMBER,
+  GENERATED_BY            STRING,
+  DATA_ORIGIN             STRING,
+  SOURCE_ANCHOR           STRING,
+  GENERATED_AT            TIMESTAMP_NTZ
+);
+
+DROP PROCEDURE IF EXISTS GOLD.GENERATE_RISK_WORK_ORDERS(NUMBER);
+
+CREATE OR REPLACE PROCEDURE GOLD.GENERATE_RISK_WORK_ORDERS(COOLDOWN_HOURS NUMBER, THRESHOLD_SCOPE STRING)
+RETURNS VARIANT
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+  created NUMBER DEFAULT 0;
+  confirmed NUMBER DEFAULT 0;
+BEGIN
+  IF (COOLDOWN_HOURS IS NULL OR COOLDOWN_HOURS < 1 OR COOLDOWN_HOURS > 72) THEN
+    RETURN OBJECT_CONSTRUCT('error', 'COOLDOWN_HOURS must be between 1 and 72');
+  END IF;
+  IF (THRESHOLD_SCOPE IS NULL OR THRESHOLD_SCOPE NOT IN ('LINE', 'FLEET')) THEN
+    RETURN OBJECT_CONSTRUCT('error', 'THRESHOLD_SCOPE must be LINE or FLEET');
+  END IF;
+  BEGIN TRANSACTION;
+  DELETE FROM SNOWCORE_REAL.GOLD.RISK_WORK_ORDER WHERE GENERATED_BY = 'AUTO_FROM_RISK';
+  INSERT INTO SNOWCORE_REAL.GOLD.RISK_WORK_ORDER
+  WITH flagged AS (
+    SELECT s.*,
+      LAG(HOUR_TS) OVER (PARTITION BY MACHINE_KEY ORDER BY HOUR_TS) AS PREV_FLAG_HOUR
+    FROM SNOWCORE_REAL.ML.PLANT_B_FAILURE_SCORE s
+    WHERE IFF(:THRESHOLD_SCOPE = 'LINE', IS_FLAGGED_LINE, IS_FLAGGED) = 1
+  ),
+  episodes AS (
+    SELECT f.*,
+      SUM(IFF(PREV_FLAG_HOUR IS NULL
+              OR DATEDIFF('hour', PREV_FLAG_HOUR, HOUR_TS) > :COOLDOWN_HOURS, 1, 0))
+        OVER (PARTITION BY MACHINE_KEY ORDER BY HOUR_TS
+              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS EPISODE_NO
+    FROM flagged f
+  ),
+  episode_span AS (
+    SELECT MACHINE_KEY, EPISODE_NO, MAX(HOUR_TS) AS LAST_FLAG_HOUR, COUNT(*) AS FLAGGED_HOURS
+    FROM episodes GROUP BY MACHINE_KEY, EPISODE_NO
+  ),
+  trig AS (
+    SELECT e.*, sp.LAST_FLAG_HOUR, sp.FLAGGED_HOURS,
+      DATEADD('hour', 5, sp.LAST_FLAG_HOUR) AS OPEN_UNTIL
+    FROM episodes e
+    JOIN episode_span sp ON sp.MACHINE_KEY = e.MACHINE_KEY AND sp.EPISODE_NO = e.EPISODE_NO
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY e.MACHINE_KEY, e.EPISODE_NO ORDER BY e.HOUR_TS) = 1
+  ),
+  events AS (
+    SELECT MACHINE_KEY, ALARM_CODE, STOP_DURATION_MIN, STOP_STATE,
+      CONVERT_TIMEZONE('UTC', STOP_START)::TIMESTAMP_NTZ AS STOP_START_UTC,
+      CONVERT_TIMEZONE('UTC', STOP_END)::TIMESTAMP_NTZ AS STOP_END_UTC
+    FROM SNOWCORE_REAL.GOLD.PIADE_DOWNTIME_EVENT
+    WHERE STOP_STATE = 'downtime'
+  ),
+  recent_alarm AS (
+    SELECT t.MACHINE_KEY, t.HOUR_TS, ev.ALARM_CODE, SUM(ev.STOP_DURATION_MIN) AS MINUTES
+    FROM trig t
+    JOIN events ev
+      ON ev.MACHINE_KEY = t.MACHINE_KEY
+     AND ev.STOP_START_UTC >= DATEADD('hour', -3, t.HOUR_TS)
+     AND ev.STOP_END_UTC   <= DATEADD('hour', 1, t.HOUR_TS)
+    GROUP BY t.MACHINE_KEY, t.HOUR_TS, ev.ALARM_CODE
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY t.MACHINE_KEY, t.HOUR_TS
+                               ORDER BY SUM(ev.STOP_DURATION_MIN) DESC, ev.ALARM_CODE) = 1
+  ),
+  while_open AS (
+    SELECT t.MACHINE_KEY, t.HOUR_TS, COUNT(ev.STOP_START_UTC) AS N
+    FROM trig t
+    LEFT JOIN events ev
+      ON ev.MACHINE_KEY = t.MACHINE_KEY
+     AND ev.STOP_DURATION_MIN >= 10
+     AND ev.STOP_START_UTC >= t.WARNING_ISSUED_AT
+     AND ev.STOP_START_UTC <  t.OPEN_UNTIL
+    GROUP BY t.MACHINE_KEY, t.HOUR_TS
+  )
+  SELECT
+    'RWO-B-' || t.MACHINE_CODE || '-' || TO_CHAR(t.WARNING_ISSUED_AT, 'YYYYMMDDHH24'),
+    'PLANT_B', t.MACHINE_KEY, t.MACHINE_CODE,
+    t.HOUR_TS, t.WARNING_ISSUED_AT, t.LAST_FLAG_HOUR, t.FLAGGED_HOURS, t.OPEN_UNTIL,
+    'PREDICTIVE_INSPECTION',
+    IFF(t.FAILURE_PERCENTILE >= 0.98, 'P2', 'P3'),
+    'PLANNED',
+    t.FAILURE_SCORE, t.FAILURE_PERCENTILE,
+    IFF(:THRESHOLD_SCOPE = 'LINE', t.LINE_THRESHOLD_SCORE, t.FLAG_THRESHOLD_SCORE),
+    :THRESHOLD_SCOPE, lm.BASE_RATE,
+    t.PERSISTENCE_SCORE, t.PAST_LONG_BREAKDOWNS_24H,
+    COALESCE(ra.ALARM_CODE, 'NONE_IN_LAST_4H'), COALESCE(ra.MINUTES, 0),
+    m.MATERIAL_ID,
+    COALESCE(i.STOCK_STATE, IFF(ra.ALARM_CODE IS NULL, 'NO_RECENT_ALARM', 'NO_KIT_MAPPED')),
+    'Warning score ' || TO_VARCHAR(ROUND(t.FAILURE_SCORE, 3))
+      || ' (top ' || TO_VARCHAR(ROUND(100 * (1 - t.FAILURE_PERCENTILE), 1)) || '% of holdout hours)'
+      || '; current-hour downtime ' || TO_VARCHAR(ROUND(100 * t.PERSISTENCE_SCORE, 1)) || '%'
+      || '; long breakdowns in last 24 h: ' || TO_VARCHAR(t.PAST_LONG_BREAKDOWNS_24H)
+      || '; most downtime in last 4 h: ' || COALESCE(ra.ALARM_CODE || ' (' || TO_VARCHAR(ROUND(ra.MINUTES, 1)) || ' min)', 'none')
+      || '; kit ' || COALESCE(m.MATERIAL_ID || ' ' || i.STOCK_STATE, 'not mapped'),
+    'Inspect line ' || t.MACHINE_CODE || ' before ' || TO_CHAR(DATEADD('hour', 4, t.WARNING_ISSUED_AT), 'YYYY-MM-DD HH24:MI')
+      || IFF(ra.ALARM_CODE IS NULL, '', '; start with the equipment behind alarm ' || ra.ALARM_CODE)
+      || IFF(i.STOCK_STATE IN ('STOCKOUT', 'REORDER'), '; confirm kit availability first', ''),
+    IFF(t.LABEL_BREAKDOWN_4H = 1, 'BREAKDOWN_WITHIN_4H', 'NO_BREAKDOWN_WITHIN_4H'),
+    t.LEAD_TIME_MIN,
+    wo.N,
+    :COOLDOWN_HOURS,
+    'AUTO_FROM_RISK', 'SYNTHETIC_IT',
+    'ML.PLANT_B_FAILURE_SCORE (observed-derived score); outcome from GOLD.PIADE_DOWNTIME_EVENT',
+    CURRENT_TIMESTAMP()::TIMESTAMP_NTZ
+  FROM trig t
+  LEFT JOIN recent_alarm ra ON ra.MACHINE_KEY = t.MACHINE_KEY AND ra.HOUR_TS = t.HOUR_TS
+  LEFT JOIN while_open wo   ON wo.MACHINE_KEY = t.MACHINE_KEY AND wo.HOUR_TS = t.HOUR_TS
+  LEFT JOIN SNOWCORE_REAL.GOLD.DIM_MATERIAL m ON m.ANONYMIZED_CAUSE_CODE = ra.ALARM_CODE
+  LEFT JOIN SNOWCORE_REAL.GOLD.INVENTORY_SNAPSHOT i ON i.MATERIAL_ID = m.MATERIAL_ID
+  LEFT JOIN SNOWCORE_REAL.ML.PLANT_B_FAILURE_METRICS lm ON lm.SCOPE = t.MACHINE_CODE;
+  COMMIT;
+  SELECT COUNT(*), COUNT_IF(OUTCOME = 'BREAKDOWN_WITHIN_4H') INTO :created, :confirmed
+  FROM SNOWCORE_REAL.GOLD.RISK_WORK_ORDER WHERE GENERATED_BY = 'AUTO_FROM_RISK';
+  RETURN OBJECT_CONSTRUCT('created', created, 'confirmed_within_4h', confirmed,
+                          'cooldown_hours', COOLDOWN_HOURS, 'threshold_scope', THRESHOLD_SCOPE);
+EXCEPTION
+  WHEN OTHER THEN
+    ROLLBACK;
+    RETURN OBJECT_CONSTRUCT('error', SQLERRM, 'sqlstate', SQLSTATE, 'sqlcode', SQLCODE);
+END;
+$$;
+
+CALL GOLD.GENERATE_RISK_WORK_ORDERS(8, 'LINE');
+
+CREATE OR REPLACE VIEW GOLD.V_RISK_WORK_ORDER_SUMMARY AS
+WITH bounds AS (
+  SELECT MIN(WARNING_ISSUED_AT) AS PERIOD_START, DATEADD('hour', 5, MAX(HOUR_TS)) AS PERIOD_END
+  FROM ML.PLANT_B_FAILURE_SCORE
+),
+breakdowns AS (
+  SELECT e.MACHINE_KEY, e.MACHINE_CODE,
+         CONVERT_TIMEZONE('UTC', e.STOP_START)::TIMESTAMP_NTZ AS STOP_START_UTC
+  FROM GOLD.PIADE_DOWNTIME_EVENT e CROSS JOIN bounds b
+  WHERE e.STOP_STATE = 'downtime' AND e.STOP_DURATION_MIN >= 10
+    AND CONVERT_TIMEZONE('UTC', e.STOP_START)::TIMESTAMP_NTZ >= b.PERIOD_START
+    AND CONVERT_TIMEZONE('UTC', e.STOP_START)::TIMESTAMP_NTZ <  b.PERIOD_END
+),
+covered AS (
+  SELECT b.MACHINE_CODE, b.STOP_START_UTC,
+    MAX(IFF(w.RISK_WORK_ORDER_ID IS NOT NULL, 1, 0)) AS IS_COVERED
+  FROM breakdowns b
+  LEFT JOIN GOLD.RISK_WORK_ORDER w
+    ON w.MACHINE_KEY = b.MACHINE_KEY AND w.GENERATED_BY = 'AUTO_FROM_RISK'
+   AND b.STOP_START_UTC >= w.ISSUED_AT AND b.STOP_START_UTC < w.OPEN_UNTIL
+  GROUP BY b.MACHINE_CODE, b.STOP_START_UTC
+),
+orders AS (
+  SELECT COALESCE(MACHINE_CODE, 'FLEET') AS SCOPE,
+    COUNT(*) AS AUTO_WORK_ORDERS,
+    COUNT_IF(OUTCOME = 'BREAKDOWN_WITHIN_4H') AS CONFIRMED_WITHIN_4H,
+    AVG(LINE_BASE_RATE) AS RANDOM_HOUR_HIT_RATE,
+    MEDIAN(LEAD_TIME_MIN) AS MEDIAN_LEAD_TIME_MIN,
+    COUNT_IF(STOCK_STATE IN ('STOCKOUT', 'REORDER')) AS ORDERS_WITH_KIT_RISK
+  FROM GOLD.RISK_WORK_ORDER WHERE GENERATED_BY = 'AUTO_FROM_RISK'
+  GROUP BY GROUPING SETS ((MACHINE_CODE), ())
+),
+cover AS (
+  SELECT COALESCE(MACHINE_CODE, 'FLEET') AS SCOPE,
+    COUNT(*) AS BREAKDOWNS_IN_PERIOD, SUM(IS_COVERED) AS BREAKDOWNS_COVERED
+  FROM covered GROUP BY GROUPING SETS ((MACHINE_CODE), ())
+)
+SELECT 'PLANT_B' AS PLANT_CODE, COALESCE(o.SCOPE, c.SCOPE) AS SCOPE,
+  COALESCE(o.AUTO_WORK_ORDERS, 0) AS AUTO_WORK_ORDERS,
+  COALESCE(o.CONFIRMED_WITHIN_4H, 0) AS CONFIRMED_WITHIN_4H,
+  o.CONFIRMED_WITHIN_4H / NULLIF(o.AUTO_WORK_ORDERS, 0) AS HIT_RATE,
+  o.RANDOM_HOUR_HIT_RATE,
+  (o.CONFIRMED_WITHIN_4H / NULLIF(o.AUTO_WORK_ORDERS, 0)) / NULLIF(o.RANDOM_HOUR_HIT_RATE, 0) AS LIFT_VS_RANDOM,
+  m.BASE_RATE AS SCOPE_BASE_RATE,
+  o.MEDIAN_LEAD_TIME_MIN, COALESCE(o.ORDERS_WITH_KIT_RISK, 0) AS ORDERS_WITH_KIT_RISK,
+  COALESCE(c.BREAKDOWNS_IN_PERIOD, 0) AS BREAKDOWNS_IN_PERIOD,
+  COALESCE(c.BREAKDOWNS_COVERED, 0) AS BREAKDOWNS_COVERED,
+  c.BREAKDOWNS_COVERED / NULLIF(c.BREAKDOWNS_IN_PERIOD, 0) AS COVERAGE_RATE,
+  'SYNTHETIC_IT orders; outcomes OBSERVED' AS DATA_ORIGIN
+FROM orders o
+FULL OUTER JOIN cover c ON c.SCOPE = o.SCOPE
+LEFT JOIN ML.PLANT_B_FAILURE_METRICS m ON m.SCOPE = COALESCE(o.SCOPE, c.SCOPE);

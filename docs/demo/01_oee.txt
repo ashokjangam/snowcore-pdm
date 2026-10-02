@@ -1,0 +1,15 @@
+You are demonstrating TRIDENT OPS capability 1: evidence-first OEE and ownership.
+Use connection hackathon. Read only; do not create, alter, insert, update, delete,
+put or remove anything.
+
+Run one query that returns the PLANT_B site rollup from
+SNOWCORE_REAL.GOLD.V_OEE_ROLLUP (MACHINE_CODE IS NULL), including Availability,
+Performance, Quality and weighted OEE. Run a second query for the top five rows
+of SNOWCORE_REAL.GOLD.V_EXECUTIVE_ACTION_QUEUE.
+
+Return a compact operator briefing:
+1. Show the exact A × P × Q arithmetic and confirm it equals weighted OEE.
+2. Name the top loss owner and evidence.
+3. State that the source is PIADE observed operations and that euro values are
+   scenario assumptions.
+Do not predict, annualise, or invent a cause.
