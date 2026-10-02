@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
 os.environ["PNEUMORA_DB"] = str(Path(__file__).resolve().parents[1] / "data" / "test-cmms.sqlite")
 
 from fastapi.testclient import TestClient
@@ -43,14 +45,15 @@ def test_product_serves_honest_status_and_a_working_cmms() -> None:
     assert training.json()["trained_rows"]["calibration_synthetic_rows"] == 0
 
     copilot = bootstrap.json()["copilot"]
-    assert copilot["status"] == "CROSS_VALIDATED_NOT_PROMOTED"
+    prediction = json.loads((ROOT / "autoresearch" / "prediction_study.json").read_text(encoding="utf-8"))
+    assert copilot["status"] == prediction["status"]
     during_leak = client.get("/api/now", params={"at": "2020-06-05T12:00:00"}).json()
     assert during_leak["copilot"]["active"] is True
     assert during_leak["title"] in {"Possible air leak", "Air may run low soon"}
     quiet = client.get("/api/now", params={"at": "2020-05-02T12:00:00"}).json()
     assert quiet["copilot"]["active"] is False
     drafts = [o for o in client.get("/api/maintenance").json()["orders"] if o["id"].startswith("PN-CO-")]
-    assert drafts and all("not promoted" in o["note"] for o in drafts)
+    assert drafts and all("cross-validation" in o["note"] for o in drafts)
 
     evidence = client.get("/api/evidence").json()
     external = evidence["external_validation"]

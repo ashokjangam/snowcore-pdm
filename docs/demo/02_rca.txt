@@ -1,19 +1,27 @@
-You are demonstrating TRIDENT OPS capability 2: bounded, cited root-cause
-investigation. Use connection hackathon. Read only; do not create, alter, insert,
-update, delete, put or remove anything.
+You are demonstrating PNEUMORA capability 2: root cause in plain words, grounded
+only in observed rows. Use connection hackathon. Read only; do not create, alter,
+insert, update, delete, put or remove anything. Query only the PNEUMORA database.
 
-Read the five highest-ranked rows for machine s_1 from
-SNOWCORE_REAL.GOLD.V_ROOT_CAUSE_ALARM. Send only these fields to AI_COMPLETE:
-ALARM_CODE, LONG_BREAKDOWNS, BREAKDOWN_HOURS, MEDIAN_STOP_MIN, PRECURSOR_RATE,
-REPEAT_24H_RATE, BACK_TO_RUNNING_RATE, WAITING_AFTER_RATE and PATTERN.
+1. Read the F04 row from PNEUMORA.CORE.FAILURES (REPORT, START_TS, END_TS,
+   ONSET_PRECISION, COPILOT_MINUTES_AFTER_START, LPS_MINUTES_AFTER_START).
+2. From PNEUMORA.ML.FAILURE_ZOOM for F04, compute the longest LOADED run and lowest
+   RESERVOIRS pressure before START_TS and between START_TS and END_TS.
+   Healthy loaded runs have a median of 1.8 minutes.
+3. Show those deterministic numbers first. Then send only them as JSON to
+   AI_COMPLETE(model => 'llama3.3-70b', ...) with
+   response_format => TYPE OBJECT(answer STRING, evidence ARRAY(STRING),
+   caveats ARRAY(STRING), next_check STRING).
 
-The model must return a structured object with:
-- answer: strongest observed pattern in two sentences
-- evidence: an array of exact alarm codes and numbers
-- caveats: an array that says codes are anonymised and correlation is not cause
-- next_question: exactly one sentence starting "At the next planned stop, can
-  the team verify". It must ask for an observable alarm sequence or line state,
-  not a diagnosis or general scheduling context.
+Instructions to the model: use only the JSON facts; quote the field name for every
+number; do not name a failed component unless REPORT names it.
+- answer: two plain sentences for a maintenance crew: what the compressor did, and
+  whether the leak detector warned before the logged start or confirmed a leak
+  already under way. Not a heading.
+- evidence: one item per number used, each naming its field.
+- caveats: what these facts cannot tell us (for example, where the leak is).
+- next_check: starts with "At the next inspection," and names one physical leak
+  check, such as a leak-down test or listening for escaping air at fittings and
+  drain valves. Not a data check.
+Call COPILOT_* "the leak detector"; never say "copilot".
 
-Show the five deterministic rows before the generated answer. Never name a
-component, failure mode, technician finding, price or saving.
+Print the structured answer. Never invent a price, saving or technician finding.

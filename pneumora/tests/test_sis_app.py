@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "sis" / "app.py"
 EXPORT = ROOT / "data" / "snowflake"
-PAGES = ["What needs attention", "Leak alerts vs real failures", "Work orders", "Compressor performance", "Engineering evidence"]
+PAGES = ["What needs attention", "Leak alerts vs real failures", "Can it predict?", "Work orders", "Compressor performance", "Engineering evidence"]
 
 pytestmark = pytest.mark.skipif(not (EXPORT / "manifest.json").exists(), reason="run scripts/export_snowflake.py first")
 

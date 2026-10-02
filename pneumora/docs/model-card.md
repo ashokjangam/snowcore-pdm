@@ -149,6 +149,93 @@ every attempt to alert before onset scored 0 of 4. On this data, predictive
 maintenance means detecting a developing failure early enough to remove the
 train before it becomes non-operational, as the operator's protocol defines it.
 
+## Fifth study: can anything warn before onset?
+
+`scripts/build_cycles.py` turns raw 1 Hz and 10 s data into one row per loaded or
+idle compressor run, keeping the physics a leak should change: idle pressure
+decay (a leak-down test the train runs on itself), pressure rise while loaded,
+loaded-run length, cycle rate, oil temperature rise and loaded motor current.
+`autoresearch/precursor_study.py` declares its gates before scoring: at least
+three of nine failures warned in the six hours before reported onset, the
+false-alert budget of one per seven healthy days, beating a Bonferroni-corrected
+random alerter, and beating the existing alarm before onset. Every arm is held
+out by compressor.
+
+| Held out by compressor | Warned before onset | Caught in time | False alerts per healthy day |
+|---|---|---|---|
+| Existing low-pressure alarm | 0 of 9 | 5 of 9 | 0.498 |
+| Label-free cycle physics (drift, EWMA, CUSUM) | 0 of 9 | 0 of 9 | 0.018 |
+| Gradient boosting, trained on the six hours before onset | 0 of 9 | 2 of 9 | 0.162 |
+| Gradient boosting, trained on onset | 1 of 9 (79 min) | 3 of 9 | 0.063 |
+| Gradient boosting with replayed onset signatures (`SYNTHETIC_TRAINING_ONLY`) | 0 of 9 | 3 of 9 | 0.096 |
+| Rolling baseline (exploratory, post hoc) | 1 of 9 (F04, 95 min) | 1 of 9 | 0.087 |
+
+Decision: `NO_PROMOTION` for every arm. Ranked against healthy weeks of the same
+unit, only F04 rises above the 99.5th percentile from twelve hours before onset;
+the other eight failures look ordinary until they start. These leaks are abrupt.
+
+The study then generated failures a different way: gradual leaks injected into
+real MetroPT-3 healthy runs at segment level, holding the pressure band fixed so
+the compressor works harder rather than losing pressure. Each leak ramps over 24
+hours; 30 trials per size; fixed detector (`leak_index_1h`, three consecutive
+bins); a no-leak control. Normal idle decay is 0.087 bar/min.
+
+| Added air loss, multiple of normal decay | 0 (control) | 0.1 | 0.25 | 0.5 | 1 | 2 | 4 |
+|---|---|---|---|---|---|---|---|
+| Detected within the ramp, of 30 | 7 | 7 | 9 | 11 | 15 | 28 | 29 |
+
+This is a sensitivity specification, not validation: a gradual leak that
+doubles normal air loss would be flagged (28 of 30, median 16.6 hours into the
+ramp) against a 7 of 30 background rate. No real gradual leak exists in the
+data to confirm it. Leaks under half of normal loss are indistinguishable from
+background.
+
+`sql/05_native_ml.sql` repeats the question with `SNOWFLAKE.ML.ANOMALY_DETECTION`,
+trained on February–March loaded-run minutes and scored on April onward with
+the same counting rules. Its results live in `PNEUMORA.ML.NATIVE_ANOMALY_SUMMARY`:
+0 of 4 warned before onset, 4 of 4 caught in time (15–50 minutes after the
+logged start), and 49 false alerts in 145.5 healthy days (0.34 per day, over the
+0.14 budget). This is MetroPT-3 only, split by time rather than held out by
+compressor, so it is weaker evidence than the study arms above.
+
+## Sixth study: protocol v2, predicting the in-service failure — `PROMOTED_CROSS_VALIDATED`
+
+`autoresearch/prediction_study.py` targets the dataset owners' definition of a
+predicted failure: an alert at least two hours before the reported end of the
+failure, by which the train must be taken out of service. Alerts up to two
+hours before the reported start also count. It keeps only air-leak physics
+(loaded-run length, leak-decay windows, low-pressure-while-loaded and their
+pairs) and adds a label-free weekly recalibration on each unit's trailing 14
+days. Settings for each held-out compressor are chosen on the other two. Five
+gates were fixed in code before the run.
+
+| Held out by compressor | Leak predictor | Existing low-pressure alarm |
+|---|---|---|
+| Air leaks predicted ≥ 2 h before removal | 6 of 7 | 3 of 7 |
+| Median warning before removal | 5.8 h | — |
+| False alerts per healthy day | 0.056 | 0.492 |
+| Warned before the leak's logged start | 1 of 9 | 0 of 9 |
+| Random alerter at the same rate, p | 3 × 10⁻⁷ | — |
+
+All five gates passed: more air leaks than the alarm, no compressor worse than
+the alarm, the 1-per-7-days false-alert budget, p < 0.01 against chance, and a
+median warning of at least three hours. The product's MetroPT-3 replay uses the
+settings chosen for that compressor from the other two (loaded run above 2.15
+minutes for an hour), so its track record is the held-out result for that unit.
+
+What this does and does not establish:
+
+- It predicts the breakdown, not the leak. Eight of nine alerts came after the
+  leak's logged start; only F04 was flagged before it.
+- It catches no oil leaks (two of nine failures). The existing alarm stays on.
+- v2 was written after v1 (`louo_study.py`) failed only the false-alert budget,
+  and after v1's leaderboard showed the oil-temperature add-on drove those false
+  alerts. Every failure had already been seen. This is cross-validation under a
+  revised protocol, not an untouched test, and no untouched MetroPT data exists:
+  Zenodo's newer MetroPT version is MetroPT-2, already scored.
+- On the untouched 2022 test of the v1 recipe, the existing alarm caught the
+  same two air leaks 15–20 minutes earlier.
+
 ## Product truth
 
 Observed telemetry supports pressure, current, temperature, compressor load,

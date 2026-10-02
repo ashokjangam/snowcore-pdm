@@ -135,7 +135,7 @@ function replayPanel() {
     const day = `${month}-${pad(d)}`;
     const kinds = new Set(marksOn(day).map((mark) => mark.kind));
     const disabled = day < minDay || day > maxDay;
-    cells.push(`<button class="day ${day === state.at.slice(0, 10) ? "picked" : ""} ${kinds.has("failure") ? "has-failure" : ""} ${kinds.has("copilot") ? "has-copilot" : ""}" data-day="${day}" ${disabled ? "disabled" : ""} title="${[...kinds].map((kind) => kind === "failure" ? "Reported failure" : "Co-pilot alert").join(" · ")}">${d}</button>`);
+    cells.push(`<button class="day ${day === state.at.slice(0, 10) ? "picked" : ""} ${kinds.has("failure") ? "has-failure" : ""} ${kinds.has("copilot") ? "has-copilot" : ""}" data-day="${day}" ${disabled ? "disabled" : ""} title="${[...kinds].map((kind) => kind === "failure" ? "Reported failure" : "Leak detector alert").join(" · ")}">${d}</button>`);
   }
   const today = marksOn(state.at.slice(0, 10));
   const dayStart = new Date(`${state.at.slice(0, 10)}T00:00`).getTime();
@@ -156,7 +156,7 @@ function replayPanel() {
     <div class="day-track">${bands}</div>
     <input id="minute" type="range" min="0" max="1435" step="5" value="${Number(state.at.slice(11, 13)) * 60 + Number(state.at.slice(14, 16))}" aria-label="Time of day">
     <div class="clock">${esc(clock(state.at))}</div>
-    <div class="legend"><span><i class="dot failure"></i>Reported failure</span><span><i class="dot copilot"></i>Co-pilot alert</span></div>
+    <div class="legend"><span><i class="dot failure"></i>Reported failure</span><span><i class="dot copilot"></i>Leak detector alert</span></div>
   </div>`;
 }
 
@@ -232,10 +232,10 @@ async function renderNow() {
         ${data.reasons.map((r) => `<tr class="${r.triggered ? "fired" : ""}"><td>${r.triggered ? "<span class='chip warn'>Fired</span>" : "<span class='chip'>OK</span>"}</td><td>${esc(r.check)}</td><td>${esc(r.reading)}</td><td class="muted">${esc(r.normal)}</td><td class="muted">${esc(r.source)}</td></tr>`).join("")}
       </tbody></table></div>` : "";
   const copilotChip = copilot.status
-    ? `<span class="chip ${copilot.active ? "warn" : ""}" title="Frozen detector, cross-validated across three compressors. Not promoted: it runs beside the existing alarm and never replaces it.">Early air-leak co-pilot · ${copilot.active ? "alerting" : "quiet"} · cross-validated, not promoted</span>`
+    ? `<span class="chip ${copilot.active ? "warn" : ""}" title="Promoted after cross-validation on three compressors. It runs beside the existing alarm and never replaces it.">Early air-leak predictor · ${copilot.active ? "alerting" : "quiet"} · promoted, cross-validated</span>`
     : "";
   $("#content").innerHTML = `
-    ${data.model_status === "NO_PROMOTION" && state.mode === "engineering" ? `<div class="notice">No predictive model passed the frozen tests. The existing low-pressure alarm stays the safety signal. ${copilot.evidence ? ` The early air-leak co-pilot runs beside it: held out across three compressors it caught ${esc(copilot.evidence.louo_caught)} failures against the alarm's ${esc(copilot.evidence.lps_caught_same_events)}, at ${copilot.evidence.louo_false_per_day.toFixed(3)} false alerts per healthy day against a budget of 0.143, so it is not promoted.` : ""}</div>` : ""}
+    ${data.model_status === "NO_PROMOTION" && state.mode === "engineering" ? `<div class="notice">No predictive model passed the frozen tests. The existing low-pressure alarm stays the safety signal. ${copilot.evidence ? ` The early air-leak predictor runs beside it: held out by compressor it predicted ${esc(copilot.evidence.air_predicted)} air leaks at least 2 h before the train had to come off, against the alarm's ${esc(copilot.evidence.alarm_air_predicted)}, at ${copilot.evidence.prediction_false_per_day.toFixed(3)} false alerts per healthy day.` : ""}</div>` : ""}
     <article class="hero" style="--tone:${tone}">
       <div>
         <div class="kicker">APU-01</div>
@@ -262,7 +262,7 @@ async function renderNow() {
       <div><span>Motor</span><b>${data.sensors.current}</b><span>A</span></div>
       <div><span>Oil</span><b>${data.sensors.oil}</b><span>°C</span></div>
       <div><span>Loaded</span><b>${Math.round(data.sensors.loaded * 100)}%</b><span>of interval</span></div>
-      ${copilot.status ? `<div><span>Non-stop loaded</span><b>${copilot.loaded_minutes}</b><span>min · co-pilot alerts after about 60</span></div>` : ""}
+      ${copilot.status ? `<div><span>Non-stop loaded</span><b>${copilot.loaded_minutes}</b><span>min · leak detector alerts after about 60</span></div>` : ""}
     </div>` : ""}
     ${data.order ? `<article class="ticket">
       <div><header><div><div class="priority">${esc(data.order.priority)} · ${esc(data.order.id)}</div><h3>${esc(data.order.problem)}</h3></div><img src="/assets/pneumora-icon.svg" alt="" width="42"></header>
@@ -378,12 +378,12 @@ function timeline(track) {
   const width = 1000, left = 190, right = 16;
   const t0 = ms(track.window[0]), t1 = ms(track.window[1]);
   const x = (t) => left + ((ms(t) - t0) / (t1 - t0)) * (width - left - right);
-  const lanes = [["Reported failures", 34], ["Co-pilot alerts", 84], ["Existing low-pressure alarm", 134]];
+  const lanes = [["Reported failures", 34], ["Leak detector alerts", 84], ["Existing low-pressure alarm", 134]];
   const months = [];
   for (let d = new Date(t0); d.getTime() <= t1; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
     if (d.getTime() >= t0) months.push(d);
   }
-  return `<svg class="chart timeline" viewBox="0 0 ${width} 180" role="img" aria-label="Co-pilot alerts and alarm against reported failures">
+  return `<svg class="chart timeline" viewBox="0 0 ${width} 180" role="img" aria-label="Leak detector alerts and alarm against reported failures">
     ${lanes.map(([name, y]) => `<text x="0" y="${y + 4}" font-size="12" fill="#6d645c">${name}</text><line x1="${left}" x2="${width - right}" y1="${y}" y2="${y}" stroke="#e7e1d8"/>`).join("")}
     ${months.map((d) => { const p = left + ((d.getTime() - t0) / (t1 - t0)) * (width - left - right); return `<line x1="${p}" x2="${p}" y1="16" y2="150" stroke="#efeae3"/><text x="${p + 3}" y="170" font-size="11" fill="#6d645c">${d.toLocaleString("en-GB", { month: "short" })}</text>`; }).join("")}
     ${track.failures.map((f) => `<g class="hit" data-focus="${f.id}"><title>${esc(f.id)} · ${esc(f.report)} · ${when(f.start)} to ${when(f.end)}</title>
@@ -438,7 +438,7 @@ function failureZoom(track, f) {
     ${loadTicks.map((v) => `<text x="4" y="${yl(v) + 4}" font-size="11" fill="#c56b3c">${v}</text>`).join("")}
     ${[7, 8, 9, 10].filter((v) => v >= pMin && v <= pMax).map((v) => `<text x="${width - 30}" y="${yp(v) + 4}" font-size="11" fill="#2f95c4">${v}</text>`).join("")}
     ${marker(f.start, "#8d3424", f.onset_precision === "day" ? "Log: day of failure (no time given)" : "Log: leak starts", false, 0)}
-    ${marker(f.copilot_first, "#c56b3c", "Co-pilot alert", false, 1)}
+    ${marker(f.copilot_first, "#c56b3c", "Leak detector alert", false, 1)}
     ${marker(f.lps_first, "#1b2327", "Low-pressure alarm", false, 2)}
     ${marker(f.removal_deadline, "#1b2327", "Last moment to act (2 h before removal)", true, 3)}
     ${ticks.join("")}
@@ -448,12 +448,12 @@ function failureZoom(track, f) {
 function failureStory(f, track) {
   const onset = f.onset_precision === "day" ? "the start of the logged day (the log gives only the date)" : "the logged start of the leak";
   const co = f.copilot_first == null
-    ? "The co-pilot did not alert in time."
+    ? "The leak detector did not alert in time."
     : f.onset_precision === "day"
-      ? `The co-pilot alerted at ${when(f.copilot_first)}, ${hours(f.copilot_minutes_after_start)} into the logged day. The log has no start time, so we cannot say whether this was before or after the leak began. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`
+      ? `The leak detector alerted at ${when(f.copilot_first)}, ${hours(f.copilot_minutes_after_start)} into the logged day. The log has no start time, so we cannot say whether this was before or after the leak began. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`
     : f.copilot_minutes_after_start < 0
-      ? `The co-pilot alerted at ${when(f.copilot_first)}, ${hours(-f.copilot_minutes_after_start)} <b>before</b> ${onset}, so here it did warn ahead. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`
-      : `The co-pilot alerted at ${when(f.copilot_first)}, ${hours(f.copilot_minutes_after_start)} <b>after</b> ${onset}, so here it confirmed a leak already under way rather than predicting it. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`;
+      ? `The leak detector alerted at ${when(f.copilot_first)}, ${hours(-f.copilot_minutes_after_start)} <b>before</b> ${onset}, so here it did warn ahead. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`
+      : `The leak detector alerted at ${when(f.copilot_first)}, ${hours(f.copilot_minutes_after_start)} <b>after</b> ${onset}, so here it confirmed a leak already under way rather than predicting it. That left ${hours(f.copilot_minutes_before_end - 120)} to act before the train had to come off.`;
   const lps = f.lps_first == null
     ? "The existing low-pressure alarm did not fire in time."
     : `The existing low-pressure alarm fired at ${when(f.lps_first)}, ${hours(f.lps_minutes_after_start)} after the logged start.`;
@@ -478,19 +478,19 @@ async function renderCopilot() {
     <article class="hero" style="--tone:var(--copper)">
       <div><div class="kicker">${esc(track.status.replaceAll("_", " "))}</div>
         <h2>It confirms a leak early. It does not predict one.</h2>
-        <p class="lede">A healthy compressor works for about two minutes, rests, and repeats. With an air leak it can never fill the tanks, so it stops resting. The co-pilot alerts when every 5-minute reading for ${track.persistence_minutes} minutes in a row shows a run longer than ${track.threshold_minutes.toFixed(2)} minutes. One long reading means nothing, because many normal readings are above that line. A full hour without a normal rest is the signal, which is why the alert always comes at least ${track.persistence_minutes} minutes after the compressor stops resting.</p>
+        <p class="lede">A healthy compressor works for about two minutes, rests, and repeats. With an air leak it can never fill the tanks, so it stops resting. The leak detector alerts when every 5-minute reading for ${track.persistence_minutes} minutes in a row shows a run longer than ${track.threshold_minutes.toFixed(2)} minutes. One long reading means nothing, because many normal readings are above that line. A full hour without a normal rest is the signal, which is why the alert always comes at least ${track.persistence_minutes} minutes after the compressor stops resting.</p>
         <div class="action"><b>What it gives the crew.</b> On the ${caught.length} reported leaks it caught, it alerted ${after.length ? `<b>after</b> the logged start on ${after.length} (${hours(Math.min(...after))} to ${hours(Math.max(...after))} after)` : ""}${before.length ? `, and once ${hours(Math.max(...before))} before the reported onset` : ""}, leaving at least ${hours(Math.min(...lead))} to inspect before the train must come off service.</div>
       </div>
       <div class="estimate">
         <div class="kicker">Reported failures caught in time</div>
         <strong>${track.tally.copilot.caught_in_time} of ${track.tally.failures}</strong>
         <p>Existing low-pressure alarm: <b>${track.tally.low_pressure_alarm.caught_in_time} of ${track.tally.failures}</b>.</p>
-        <p class="muted">Alerts with no reported failure: co-pilot ${track.tally.copilot.no_reported_failure} of ${track.tally.copilot.alerts}; alarm ${track.tally.low_pressure_alarm.no_reported_failure} of ${track.tally.low_pressure_alarm.alerts}.</p>
+        <p class="muted">Alerts with no reported failure: leak detector ${track.tally.copilot.no_reported_failure} of ${track.tally.copilot.alerts}; alarm ${track.tally.low_pressure_alarm.no_reported_failure} of ${track.tally.low_pressure_alarm.alerts}.</p>
       </div>
     </article>
     <article class="card" style="margin-top:16px"><h3>Every alert against the maintenance log · ${when(track.window[0])} to ${when(track.window[1])}</h3>
       ${timeline(track)}
-      <p class="muted">Filled circle: co-pilot alert that landed on a reported failure in time. Hollow circle: alert with no reported failure. Click a failure to zoom in, or an alert to replay that moment.</p>
+      <p class="muted">Filled circle: leak detector alert that landed on a reported failure in time. Hollow circle: alert with no reported failure. Click a failure to zoom in, or an alert to replay that moment.</p>
     </article>
     <article class="card" style="margin-top:16px">
       <div class="tabs">${track.failures.map((f) => `<button class="btn ${f.id === focus.id ? "" : "ghost"}" data-focus="${f.id}">${esc(f.id)}</button>`).join("")}
@@ -500,7 +500,7 @@ async function renderCopilot() {
       <p class="legend dark"><span><i class="dot copilot"></i>Non-stop run length (minutes, square-root scale so short runs stay visible)</span><span><i class="dot blue"></i>Reservoir pressure (bar)</span><span><i class="dot failure"></i>Reported failure period</span></p>
       ${failureStory(focus, track)}
     </article>
-    <article class="card" style="margin-top:16px"><h3>All ${track.copilot.length} co-pilot alerts</h3>
+    <article class="card" style="margin-top:16px"><h3>All ${track.copilot.length} leak detector alerts</h3>
       <table class="table"><thead><tr><th>Alert</th><th>Raised</th><th>Cleared</th><th>Longest non-stop run</th><th>Outcome</th><th>Against the failure</th><th></th></tr></thead><tbody>
       ${track.copilot.map((r) => `<tr><td>${esc(r.alert_id)}</td><td>${when(r.raised_at)}</td><td>${when(r.cleared_at)}</td><td>${r.peak_loaded_minutes.toFixed(0)} min</td><td>${outcomeChip[r.outcome]}</td>
         <td>${r.failure_id ? `${esc(r.failure_id)} · ${r.minutes_after_start < 0 ? `${hours(-r.minutes_after_start)} before onset` : `${hours(r.minutes_after_start)} after onset`}` : "<span class='muted'>—</span>"}</td>
@@ -508,9 +508,9 @@ async function renderCopilot() {
       </tbody></table>
     </article>
     <article class="card" style="margin-top:16px"><h3>Read this before trusting it</h3>
-      <p><b>These four failures are the ones the detector was designed on.</b> The track record above shows how it behaves, but it is not independent proof. The honest numbers come from data it never saw. Frozen and tested on two 2022 compressors, it caught ${e.external_air_leaks_caught} of 3 air leaks with ${e.external_false_alerts} false alert. Holding out each compressor in turn, it caught ${esc(e.louo_caught)} failures against the alarm's ${esc(e.lps_caught_same_events)}, at ${e.louo_false_per_day.toFixed(3)} false alerts per healthy day. The budget is 0.143, so it is <b>not promoted</b>.</p>
+      <p><b>These four failures are the ones the detector was designed on.</b> The track record above shows how it behaves, but it is not independent proof. The honest numbers come from data it never saw. Frozen and tested on two 2022 compressors, it caught ${e.external_air_leaks_caught} of 3 air leaks with ${e.external_false_alerts} false alert. Holding out each compressor in turn, it predicted ${esc(e.air_predicted)} air leaks at least 2 h before the train had to come off, against the alarm's ${esc(e.alarm_air_predicted)}, at ${e.prediction_false_per_day.toFixed(3)} false alerts per healthy day. That passed every pre-declared gate, so it is <b>promoted</b>, with one caveat: the protocol was revised after the first version failed on false alerts.</p>
       <p><b>It is early detection, not a forecast hours ahead.</b> The leaks in this data start abruptly, and no signal we measured rises hours before them.</p>
-      <p><b>Alerts with no reported failure are not proven false.</b> Some may be unlogged faults, but we cannot verify that from this data, so they are counted against the co-pilot.</p>
+      <p><b>Alerts with no reported failure are not proven false.</b> Some may be unlogged faults, but we cannot verify that from this data, so they are counted against the leak detector.</p>
       <p class="muted">It runs beside the existing alarm and never replaces it. The work orders it opens are drafts for a person to review.</p>
     </article>`;
   document.querySelectorAll("[data-focus]").forEach((node) => node.onclick = () => { state.focus = node.dataset.focus; renderCopilot(); });

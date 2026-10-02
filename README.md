@@ -1,83 +1,91 @@
-# TRIDENT OPS — Evidence-first Predictive Maintenance & OEE
+# PNEUMORA — early air-leak prediction on real compressor sensors
 
-**TRidents · Snowflake CoCo CLI Hackathon 2026 — GCC Edition · Problem Statement 3**
+**TRidents · Snowflake CoCo CLI Hackathon 2026 — GCC Edition · Predictive Maintenance and OEE Command Center**
 
-TRIDENT OPS is a standalone Streamlit-in-Snowflake command center over two real,
-public evidence lanes:
+PNEUMORA is a Streamlit-in-Snowflake command center for one real asset: the air
+production unit (compressor) of a Porto metro train. It reads the compressor's
+real sensor streams, catches developing air leaks, explains each one with Cortex
+using only observed facts, and records the crew's decision in Snowflake.
 
-- **PIADE:** two years of real packaging-line states, alarms and package counts.
-  This is the operational spine: weighted OEE, loss ownership, next-hour risk,
-  cited alarm-pattern investigation and persistent triage.
-- **MetroPT:** real compressor pressure, motor current, temperature, load and
-  reported failures. This is a separate sensor-evidence page. The detector is
-  explicitly labelled post-onset detection and `NO_PROMOTION`.
-
-The datasets come from unrelated assets and are **never joined**. One console does
-not mean one fabricated plant.
+- **Real:** MetroPT pressure, motor current, oil temperature and compressor-load
+  streams from three compressors, with nine documented failures
+  (MetroPT-3 DOI `10.24432/C5VW3R`, MetroPT 2022 Zenodo `6854240`, MetroPT-2
+  Zenodo `7766691`).
+- **Synthetic, labelled:** work orders, parts, crew and an example-factory OEE
+  scenario for the same asset. They are labelled on every screen and never used
+  to score a model.
 
 ## Live prototype
 
-[Open TRIDENT OPS in Snowflake](https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/bd2ocwt4eblddojvzl7v)
+[Open PNEUMORA in Snowflake](https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/df4d72ofa3zbhz6wswdh)
 
-The app uses `SYSTEM$WAREHOUSE_RUNTIME` with pinned Snowflake-channel packages:
-Streamlit 1.52.2, Plotly 6.5.0, pandas 2.3.3 and Snowpark Python.
+Warehouse runtime (`SYSTEM$WAREHOUSE_RUNTIME`) with Streamlit 1.52.2, Plotly 6.5.0,
+pandas 2.3.3 and Snowpark Python.
 
 ## Three working capabilities
 
-1. **OEE and loss ownership:** site OEE is recomputed from summed observed seconds
-   and packages, not averaged percentages. PIADE site OEE is 46.78%
-   (A 64.32% × P 72.93% × Q 99.72%).
-2. **Bounded RCA:** Cortex sees at most five deterministic alarm-pattern rows,
-   cites anonymised alarm codes and must abstain from component claims.
-3. **Persistent triage:** acknowledge, inspect and snooze call an idempotent
-   Snowflake procedure. A repeat click returns the existing action id; it does not
-   create another row.
+1. **Predict.** A physics leak predictor (the compressor stays loaded for about
+   an hour) flagged 6 of 7 air leaks at least two hours before the train had to
+   come out of service, a median 5.8 hours ahead, when tested on compressors it
+   never saw. The existing low-pressure alarm managed 3 of 7, with nearly nine
+   times the false alerts (0.49 against 0.056 per healthy day). Every pre-declared
+   gate passed: `PROMOTED_CROSS_VALIDATED`. `SNOWFLAKE.ML.ANOMALY_DETECTION`
+   caught 4 of 4 on a time split, at 0.34 false alerts per day.
+2. **Explain.** Cortex `AI_COMPLETE` with a typed response receives only the
+   observed facts for a failure, must quote the field behind every number, and
+   may not name a component the failure report does not name.
+3. **Act.** Acknowledge, inspect and dismiss call `PNEUMORA.OPS.RECORD_ACTION`, a
+   MERGE on a hashed key. Repeating a decision returns the same action id.
 
-## Truth contract
+## What "predict" means here
 
-| Label | Meaning |
-|---|---|
-| Observed | Copied from a published source |
-| Derived | Deterministic calculation from observed rows |
-| Model | Evaluated output with a named split and baseline |
-| Scenario | Generated ERP, maintenance history or money |
-| Operator-entered | A real decision made in this prototype |
+PNEUMORA predicts the breakdown, the point by which the train must come out of
+service, which is the dataset owners' own definition of a predicted failure. It
+does not predict the leak itself. We tested that directly, with gates fixed in
+code and every arm held out by compressor: label-free cycle physics with drift,
+EWMA and CUSUM, three gradient-boosted models, synthetic replay of real onsets,
+and a rolling baseline. The best warned 1 of 9 failures before the leak began
+(F04, about 80 minutes). The other leaks begin abruptly.
 
-PIADE has no vibration, temperature or current channels. MetroPT has no production
-counts or real ERP. TRIDENT OPS does not claim remaining useful life, measured OEE
-lift or realised savings.
+The promotion has one caveat the app states: protocol v2 was written after v1
+failed only its false-alert budget, and all nine failures had been seen. No
+untouched MetroPT data exists to test it again.
+
+To test gradual leaks, which the data does not contain, leaks were injected
+into real healthy compressor runs. A leak at twice normal air loss was caught
+in 28 of 30 trials, against 7 of 30 with no leak. That is a sensitivity
+specification, not validation.
+
+## Reproduce
+
+```powershell
+cd pneumora
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
+
+Run `pneumora/sql/00_setup.sql` to `05_native_ml.sql` in order through a client
+session (CoCo CLI, Snowflake CLI or SnowSQL). The full pipeline, studies and
+limits are in [`pneumora/README.md`](pneumora/README.md) and
+[`pneumora/docs/model-card.md`](pneumora/docs/model-card.md).
 
 ## Source map
 
 | Path | Purpose |
 |---|---|
-| `sql/10_real_setup.sql` … `sql/23_risk_work_orders.sql` | Reproducible PIADE medallion, OEE, model, Cortex and replay |
-| `pneumora/` | Isolated MetroPT ingest, evaluation and Streamlit app |
-| `trident_ops/` | Standalone command center, action procedure and tests |
-| `docs/prototype-brief.md` | Submission copy and demo workflow |
-| `docs/project-a-to-z.html` | PIADE engineering guide |
-| `docs/pneumora-a-to-z.html` | MetroPT engineering guide |
+| `pneumora/` | Ingest, studies, export, Snowflake SQL, Streamlit app and tests |
+| `docs/prototype-brief.md` | Submission brief and video script |
+| `docs/demo/` | CoCo CLI prompts used in the demo |
+| `docs/submission/` | Deck (PPTX and PDF) |
+| `docs/cortex-audit/` | Every CoCo CLI prompt and result used to build and deploy |
+| `sql/10_*` … `sql/23_*` | Earlier PIADE packaging-line work, not part of this submission |
 
-## Reproduce TRIDENT OPS
+## Limits
 
-Run `trident_ops/sql/00_setup.sql`, then `01_triage_action.sql`. Upload
-`trident_ops/app.py`, `environment.yml`, `.streamlit/config.toml` and `modules/`
-to `@TRIDENT_OPS.APP.STREAMLIT_STAGE`, then run `02_deploy_app.sql`.
-
-```powershell
-.\pneumora\.venv-sis152\Scripts\python.exe -m pytest trident_ops\tests -q
-cd pneumora
-.\.venv\Scripts\python.exe -m pytest tests -q
-```
-
-## Honest model evidence
-
-- PIADE rolling-validation champion AUC: 0.6880; baseline 0.6879. The automated
-  search plateaued, so another algorithm is not the missing ingredient.
-- PIADE blind top-decile precision: 76.4%; model status must be read beside its
-  persistence baseline and per-line trust flag.
-- MetroPT external air-leak detector: 2 of 3, at +72 and +86 minutes after onset,
-  with one false alert in 167 healthy days. It is not a forecast.
+PNEUMORA does not foresee a leak before it begins, catch oil leaks, estimate remaining useful life,
+measure real factory OEE or claim avoided cost. MetroPT has no production counts
+or real work orders; those views are labelled synthetic.
 
 ---
 

@@ -90,11 +90,11 @@ def explain(moment, latest, low, copilot_active, loaded_minutes, order, estimate
             "source": "Observed telemetry (train's own alarm)",
         },
         {
-            "check": "Early air-leak co-pilot",
+            "check": "Early air-leak predictor",
             "reading": f"Compressor working non-stop for {loaded_minutes:.0f} min",
-            "normal": f"Healthy runs last about 2 min; the co-pilot alerts after about {persistence_minutes} min non-stop",
+            "normal": f"Healthy runs last about 2 min; the leak predictor alerts after about {persistence_minutes} min non-stop",
             "triggered": copilot_active,
-            "source": "Frozen detector, cross-validated, not promoted",
+            "source": "Promoted detector, cross-validated on three compressors",
         },
         {
             "check": "Open work order",

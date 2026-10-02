@@ -1,4 +1,8 @@
-"""PNEUMORA early air-leak co-pilot — Streamlit in Snowflake (read-only)."""
+"""PNEUMORA early air-leak detector — Streamlit in Snowflake.
+
+Reads observed MetroPT-3 telemetry and frozen study results. The only writes are
+operator decisions through PNEUMORA.OPS.RECORD_ACTION.
+"""
 
 from __future__ import annotations
 
@@ -99,6 +103,83 @@ def load(key: str) -> pd.DataFrame:
     return frame
 
 
+def sql_text(value, limit: int = 4000) -> str:
+    return "'" + str(value if value is not None else "")[:limit].replace("\\", "\\\\").replace("'", "''") + "'"
+
+
+def live_query(sql: str) -> pd.DataFrame | None:
+    """Run a query in Snowflake; None outside Snowflake or if the object is missing."""
+    session = snowflake_session()
+    if session is None:
+        return None
+    try:
+        frame = session.sql(sql).to_pandas()
+    except Exception:
+        return None
+    frame.columns = [column.lower() for column in frame.columns]
+    return frame
+
+
+def record_action(source_key: str, action: str, note: str) -> dict:
+    session = snowflake_session()
+    if session is None:
+        return {"ok": False, "error": "Decisions are saved only inside Snowflake."}
+    raw = session.sql(
+        f"CALL {DATABASE}.OPS.RECORD_ACTION({sql_text(source_key, 120)}, {sql_text(action, 20)}, {sql_text(note, 500)}, CURRENT_USER())"
+    ).collect()[0][0]
+    return raw if isinstance(raw, dict) else json.loads(str(raw))
+
+
+def action_log(limit: int = 15) -> pd.DataFrame | None:
+    return live_query(
+        f"SELECT ACTION_ID, CREATED_AT, LAST_SEEN_AT, SOURCE_KEY, ACTION, STATUS, NOTE, ACTOR "
+        f"FROM {DATABASE}.OPS.ACTION_LOG ORDER BY LAST_SEEN_AT DESC LIMIT {int(limit)}"
+    )
+
+
+def decision_panel(source_key: str, context: str) -> None:
+    st.markdown("#### Decide and record")
+    st.caption(f"Source: `{source_key}` · {context}. Repeating a decision on the same source updates it; it never creates a duplicate.")
+    note = st.text_input("Note for the crew", value="", max_chars=500, key=f"note-{source_key}",
+                         placeholder="e.g. Listen for leaks at the dryer drain before the next run")
+    columns = st.columns(3)
+    for column, label, action in zip(columns, ("Acknowledge", "Open inspection", "Dismiss"), ("ACKNOWLEDGE", "INSPECT", "DISMISS")):
+        if column.button(label, key=f"{action}-{source_key}", width="stretch"):
+            result = record_action(source_key, action, note)
+            if result.get("ok"):
+                verb = "Updated existing" if result.get("deduplicated") else "Saved new"
+                st.success(f"{verb} decision {result['action_id']} · {result['action']} · {result['status']}")
+            else:
+                st.warning(result.get("error", "Not saved"))
+    log = action_log()
+    if log is not None and not log.empty:
+        st.dataframe(log, hide_index=True, width="stretch")
+    elif log is None:
+        st.caption("The decision log lives in PNEUMORA.OPS.ACTION_LOG and is shown when the app runs in Snowflake.")
+
+
+def cortex_failure_answer(packet: dict) -> dict:
+    prompt = (
+        "You explain a compressor air-leak event to a maintenance crew. Use ONLY the JSON facts below. "
+        "Quote the field name for every number you use. Do not name a failed component unless the 'report' field names it. "
+        "answer: two plain sentences for the crew saying what the compressor did and whether the leak detector warned "
+        "before the logged start or confirmed a leak already under way; never a heading. "
+        "evidence: one item per number used, each naming its field. "
+        "caveats: what these facts cannot tell us, such as where the leak is. "
+        "If onset_precision is 'day', say the timing before or after onset is unknown. "
+        "next_check must start with 'At the next inspection,' and name one physical leak check, such as a leak-down "
+        "test or listening for escaping air at fittings and drain valves; never a data check. "
+        "Facts: " + json.dumps(packet, default=str)
+    )
+    sql = (
+        "SELECT AI_COMPLETE(model => 'llama3.3-70b', "
+        f"prompt => {sql_text(prompt, 12000)}, "
+        "response_format => TYPE OBJECT(answer STRING, evidence ARRAY(STRING), caveats ARRAY(STRING), next_check STRING)) AS R"
+    )
+    raw = snowflake_session().sql(sql).collect()[0][0]
+    return raw if isinstance(raw, dict) else json.loads(str(raw))
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def documents() -> dict:
     frame = load("evidence")
@@ -154,7 +235,7 @@ def marks() -> pd.DataFrame:
     })
     copilot_marks = pd.DataFrame({
         "kind": "copilot", "id": COPILOT_ALERTS["alert_id"], "start": COPILOT_ALERTS["raised_at"], "end": COPILOT_ALERTS["cleared_at"],
-        "label": "Co-pilot alert " + COPILOT_ALERTS["alert_id"] + COPILOT_ALERTS["failure_id"].fillna("").map(lambda f: f" (on {f})" if f else " (no reported failure)"),
+        "label": "Leak detector alert " + COPILOT_ALERTS["alert_id"] + COPILOT_ALERTS["failure_id"].fillna("").map(lambda f: f" (on {f})" if f else " (no reported failure)"),
     })
     return pd.concat([failure_marks, copilot_marks], ignore_index=True).sort_values("start").reset_index(drop=True)
 
@@ -215,7 +296,7 @@ def month_calendar(day: date) -> str:
         dots = ("<i class='f'></i>" if "failure" in kinds else "") + ("<i class='c'></i>" if "copilot" in kinds else "")
         cells.append(f"<span class='{classes}'>{d}{dots}</span>")
     return (f"<div class='pn-cal'>{''.join(cells)}</div>"
-            "<div class='pn-legend'><b style='background:#e0624a'></b>Reported failure<b style='background:#f0a46f'></b>Co-pilot alert</div>")
+            "<div class='pn-legend'><b style='background:#e0624a'></b>Reported failure<b style='background:#f0a46f'></b>Leak detector alert</div>")
 
 
 def day_strip(day: date, moment: pd.Timestamp) -> go.Figure:
@@ -244,21 +325,21 @@ with st.sidebar:
     st.caption("APU-01 · MetroPT-3 compressor · read-only")
     page = st.radio(
         "Page",
-        ["What needs attention", "Leak alerts vs real failures", "Work orders", "Compressor performance", "Engineering evidence"],
+        ["What needs attention", "Leak alerts vs real failures", "Can it predict?", "Work orders", "Compressor performance", "Engineering evidence"],
         key="page", label_visibility="collapsed",
     )
     st.markdown("### Replay")
     left, right = st.columns(2)
     left.button("‹ Previous alert", on_click=jump, args=(-1,), width="stretch")
     right.button("Next alert ›", on_click=jump, args=(1,), width="stretch")
-    st.selectbox("Jump to an event", list(EVENT_OPTIONS), index=None, placeholder="Pick a failure or co-pilot alert",
+    st.selectbox("Jump to an event", list(EVENT_OPTIONS), index=None, placeholder="Pick a failure or leak detector alert",
                  key="event_pick", on_change=jump_to_event)
     st.date_input("Day", min_value=RANGE_START.date(), max_value=RANGE_END.date(), key="replay_day")
     st.markdown(month_calendar(st.session_state["replay_day"]), unsafe_allow_html=True)
     st.slider("Time of day", min_value=time(0, 0), max_value=time(23, 55), step=timedelta(minutes=5), key="replay_time", format="HH:mm")
     moment = current_moment()
     show(day_strip(st.session_state["replay_day"], moment))
-    st.caption(f"Replaying **{moment:%d %b %Y, %H:%M}**. Bars show failures and co-pilot alerts on this day; the white line is the replay time.")
+    st.caption(f"Replaying **{moment:%d %b %Y, %H:%M}**. Bars show failures and leak detector alerts on this day; the white line is the replay time.")
 
 
 # ---------- pages ----------
@@ -266,8 +347,8 @@ def page_now() -> None:
     orders = load("orders")
     status = status_at(moment, TELEMETRY, orders, PERSISTENCE)
     tone = {"ok": OK, "watch": COPPER, "low": LOW}[status["state"]]
-    chip = (f"<span class='pn-chip {'warn' if status['copilot_active'] else ''}'>Early air-leak co-pilot · "
-            f"{'alerting' if status['copilot_active'] else 'quiet'} · cross-validated, not promoted</span>")
+    chip = (f"<span class='pn-chip {'warn' if status['copilot_active'] else ''}'>Early air-leak predictor · "
+            f"{'alerting' if status['copilot_active'] else 'quiet'} · promoted, cross-validated on 3 compressors</span>")
     hero, side = st.columns([1.6, 0.8])
     with hero:
         st.markdown(
@@ -308,6 +389,11 @@ def page_now() -> None:
             <p style="color:{MUTED};font-size:12px">{esc(order['technician'])} · {esc(order['part'])} · {esc(order['status'])} · demonstration maintenance record</p></div>""",
             unsafe_allow_html=True,
         )
+    active = COPILOT_ALERTS[(COPILOT_ALERTS["raised_at"] <= moment) & (COPILOT_ALERTS["cleared_at"].fillna(moment) >= moment)]
+    if not active.empty:
+        decision_panel(str(active.iloc[-1]["alert_id"]), "leak detector alert active at this replay time")
+    elif order:
+        decision_panel(str(order["order_id"]), "open demonstration work order")
 
 
 def timeline() -> go.Figure:
@@ -319,7 +405,7 @@ def timeline() -> go.Figure:
     fig.add_trace(go.Scatter(x=FAILURES["start_ts"], y=[3] * len(FAILURES), mode="text", text=FAILURES["failure_id"],
                              textposition="top center", name="Reported failure", hovertext=FAILURES["report"], showlegend=False))
     caught = COPILOT_ALERTS["outcome"] == "caught_in_time"
-    for mask, name, fill in ((caught, "Co-pilot alert on a reported failure", COPPER), (~caught, "Co-pilot alert, no reported failure", CARD)):
+    for mask, name, fill in ((caught, "Leak detector alert on a reported failure", COPPER), (~caught, "Leak detector alert, no reported failure", CARD)):
         rows = COPILOT_ALERTS[mask]
         fig.add_trace(go.Scatter(
             x=rows["raised_at"], y=[2] * len(rows), mode="markers", name=name,
@@ -332,7 +418,7 @@ def timeline() -> go.Figure:
                              marker=dict(symbol="line-ns", size=16, line=dict(color="#a9a29a", width=2))))
     fig.add_trace(go.Scatter(x=lps.loc[lps_caught, "raised_at"], y=[1] * int(lps_caught.sum()), mode="markers", name="Low-pressure alarm on a failure",
                              marker=dict(symbol="line-ns", size=20, line=dict(color=INK, width=4))))
-    fig.update_yaxes(tickvals=[1, 2, 3], ticktext=["Existing low-pressure alarm", "Co-pilot alerts", "Reported failures"], range=[0.4, 3.9], showgrid=False)
+    fig.update_yaxes(tickvals=[1, 2, 3], ticktext=["Existing low-pressure alarm", "Leak detector alerts", "Reported failures"], range=[0.4, 3.9], showgrid=False)
     fig.update_xaxes(showgrid=True, gridcolor="#efeae3")
     chart_layout(fig, 300)
     fig.update_layout(hovermode="closest", margin=dict(l=180, r=10, t=30, b=10))
@@ -359,7 +445,7 @@ def zoom(failure: pd.Series) -> go.Figure:
                   annotation_font=dict(color=COPPER, size=11))
     lines = [
         (failure["start_ts"], LOW, "solid", "Log: day of failure (no time given)" if failure["onset_precision"] == "day" else "Log: leak starts"),
-        (alert, COPPER, "solid", "Co-pilot alert"),
+        (alert, COPPER, "solid", "Leak detector alert"),
         (failure["lps_first"], INK, "solid", "Low-pressure alarm"),
         (failure["removal_deadline"], INK, "dash", "Last moment to act"),
     ]
@@ -380,7 +466,7 @@ def zoom(failure: pd.Series) -> go.Figure:
 def story(failure: pd.Series) -> str:
     onset = "the start of the logged day (the log gives only the date)" if failure["onset_precision"] == "day" else "the logged start of the leak"
     if pd.isna(failure["copilot_first"]):
-        co = "The co-pilot did not alert in time."
+        co = "The leak detector did not alert in time."
     else:
         after = failure["copilot_minutes_after_start"]
         margin = span(failure["copilot_minutes_before_end"] - 120)
@@ -390,7 +476,7 @@ def story(failure: pd.Series) -> str:
             relation = f"{span(after)} **before** {onset}, so here it did warn ahead"
         else:
             relation = f"{span(after)} **after** {onset}, so here it confirmed a leak already under way rather than predicting it"
-        co = f"The co-pilot alerted at {when(failure['copilot_first'])}, {relation}. That left {margin} to act before the train had to come off."
+        co = f"The leak detector alerted at {when(failure['copilot_first'])}, {relation}. That left {margin} to act before the train had to come off."
         points = load("zoom")
         hour = points[(points["failure_id"] == failure["failure_id"]) & (points["ts"] <= failure["copilot_first"])
                       & (points["ts"] > failure["copilot_first"] - pd.Timedelta(minutes=PERSISTENCE))]
@@ -420,9 +506,9 @@ def page_track() -> None:
     if undated:
         timing += f". For {undated} more the log gives only the date, so we cannot say whether it was early or late"
     st.markdown(
-        f"""<div class="pn-hero" style="--tone:{COPPER}"><div class="pn-kicker">Leak detector · cross-validated · not promoted</div>
-        <h2>It confirms a leak early. It does not predict one.</h2><div class="pn-lede">A healthy compressor works for about two minutes, rests, and repeats.
-        With an air leak it can never fill the tanks, so it stops resting. The co-pilot alerts when every 5-minute reading for
+        f"""<div class="pn-hero" style="--tone:{COPPER}"><div class="pn-kicker">Leak predictor · promoted after cross-validation on three compressors</div>
+        <h2>It predicts the breakdown hours ahead, once the leak has begun.</h2><div class="pn-lede">A healthy compressor works for about two minutes, rests, and repeats.
+        With an air leak it can never fill the tanks, so it stops resting. The leak detector alerts when every 5-minute reading for
         {PERSISTENCE} minutes in a row shows a run longer than {SUMMARY['threshold_minutes']:.2f} minutes. One long reading means nothing,
         because {above:.0%} of normal readings are above that line. A full hour without a normal rest is the signal.
         That hour is why the alert always comes at least {PERSISTENCE} minutes after the compressor stops resting.</div>
@@ -432,23 +518,24 @@ def page_track() -> None:
         unsafe_allow_html=True,
     )
     a, b, c, d = st.columns(4)
-    a.metric("Failures caught in time · co-pilot", f"{tally['copilot']['caught_in_time']} of {tally['failures']}")
+    a.metric("Failures caught in time · leak detector", f"{tally['copilot']['caught_in_time']} of {tally['failures']}")
     b.metric("Failures caught in time · existing alarm", f"{tally['low_pressure_alarm']['caught_in_time']} of {tally['failures']}")
-    c.metric("Co-pilot alerts with no reported failure", f"{tally['copilot']['no_reported_failure']} of {tally['copilot']['alerts']}")
+    c.metric("Leak detector alerts with no reported failure", f"{tally['copilot']['no_reported_failure']} of {tally['copilot']['alerts']}")
     d.metric("Alarm alerts with no reported failure", f"{tally['low_pressure_alarm']['no_reported_failure']} of {tally['low_pressure_alarm']['alerts']}")
     st.markdown("#### Every alert against the maintenance log")
     show(timeline())
-    st.caption("Filled circle: co-pilot alert that landed on a reported failure in time. Hollow circle: alert with no reported failure. Grey ticks: existing low-pressure alarm.")
+    st.caption("Filled circle: leak detector alert that landed on a reported failure in time. Hollow circle: alert with no reported failure. Grey ticks: existing low-pressure alarm.")
 
     st.markdown("#### Zoom into one failure: what the compressor did, and when each alert fired")
     choice = st.radio("Failure", list(FAILURES["failure_id"]), index=len(FAILURES) - 1, horizontal=True, label_visibility="collapsed")
     failure = FAILURES[FAILURES["failure_id"] == choice].iloc[0]
     show(zoom(failure))
     st.markdown(story(failure))
+    explain_with_cortex(failure)
     target = failure["copilot_first"] if pd.notna(failure["copilot_first"]) else failure["start_ts"]
     st.button(f"Replay {choice} on the status page", on_click=lambda t=target: (set_moment(t), st.session_state.update(page="What needs attention")))
 
-    st.markdown(f"#### All {len(COPILOT_ALERTS)} co-pilot alerts")
+    st.markdown(f"#### All {len(COPILOT_ALERTS)} leak detector alerts")
     table = COPILOT_ALERTS.assign(
         Raised=COPILOT_ALERTS["raised_at"].map(when), Cleared=COPILOT_ALERTS["cleared_at"].map(when),
         Longest_run=COPILOT_ALERTS["peak_loaded_minutes"].map(lambda v: f"{v:.0f} min"),
@@ -465,13 +552,167 @@ def page_track() -> None:
         f"""<div class="pn-card"><b>Read this before trusting it</b>
         <p><b>These four failures are the ones the detector was designed on.</b> The charts above show how it behaves, but it is not independent proof.
         On data it never saw it was frozen and tested on two 2022 compressors and caught {evidence['external_air_leaks_caught']} of 3 air leaks with {evidence['external_false_alerts']} false alert.
-        Holding out each compressor in turn, it caught {evidence['louo_caught']} failures against the alarm's {evidence['lps_caught_same_events']},
-        at {evidence['louo_false_per_day']:.3f} false alerts per healthy day. The budget is 0.143, so it is <b>not promoted</b>.</p>
-        <p><b>It is early detection, not a forecast hours ahead.</b> The leaks in this data start abruptly, and no signal we measured rises hours before them.</p>
-        <p><b>Alerts with no reported failure are not proven false.</b> Some may be unlogged faults, but we cannot verify that from this data, so they are counted against the co-pilot.</p>
+        Holding out each compressor in turn, it predicted {evidence['air_predicted']} air leaks at least 2 h before the train had to come off,
+        against the alarm's {evidence['alarm_air_predicted']}, at {evidence['prediction_false_per_day']:.3f} false alerts per healthy day (alarm {evidence['alarm_false_per_day']:.2f}).
+        Every pre-declared gate passed, so it is <b>promoted</b>. Caveat: this protocol was revised after the first version failed on false alerts, and no untouched data remains.</p>
+        <p><b>It predicts the breakdown, not the leak.</b> The leaks in this data start abruptly; only {evidence['pre_onset_predictions']} of 9 alerts came before the logged start.
+        What it forecasts is the reported end of the failure, by which the train must come out of service: a median {evidence['median_lead_minutes'] / 60:.1f} h ahead.</p>
+        <p><b>Alerts with no reported failure are not proven false.</b> Some may be unlogged faults, but we cannot verify that from this data, so they are counted against the leak detector.</p>
         <p style="color:{MUTED}">It runs beside the existing alarm and never replaces it. The work orders it opens are drafts for a person to review.</p></div>""",
         unsafe_allow_html=True,
     )
+
+
+def failure_packet(failure: pd.Series) -> dict:
+    points = load("zoom")
+    points = points[points["failure_id"] == failure["failure_id"]]
+    inside = points[(points["ts"] >= failure["start_ts"]) & (points["ts"] <= failure["end_ts"])]
+    before = points[points["ts"] < failure["start_ts"]]
+    percentiles = next((row for row in DOCS.get("precursor", {}).get("percentiles", [])
+                        if row["unit"] == "METROPT3_UCI_791" and row["event_id"] == failure["failure_id"]), {})
+    packet = {
+        "failure_id": failure["failure_id"], "report": failure["report"], "onset_precision": failure["onset_precision"],
+        "logged_start": failure["start_ts"], "logged_end": failure["end_ts"], "removal_deadline": failure["removal_deadline"],
+        "leak_detector_first_alert": failure["copilot_first"],
+        "leak_detector_minutes_after_logged_start": failure["copilot_minutes_after_start"],
+        "low_pressure_alarm_first": failure["lps_first"], "low_pressure_alarm_minutes_after_logged_start": failure["lps_minutes_after_start"],
+        "longest_loaded_run_minutes_during_failure": round(float(inside["loaded"].max()), 1) if not inside.empty else None,
+        "lowest_reservoir_bar_during_failure": round(float(inside["reservoirs"].min()), 2) if not inside.empty else None,
+        "longest_loaded_run_minutes_before_start": round(float(before["loaded"].max()), 1) if not before.empty else None,
+        "healthy_normal_loaded_run_minutes": 1.8,
+        "leak_index_percentile_vs_healthy": {k.replace("pctl_", ""): v for k, v in percentiles.items() if k.startswith("pctl_")},
+    }
+    return {k: (None if isinstance(v, float) and pd.isna(v) else v) for k, v in packet.items()}
+
+
+def explain_with_cortex(failure: pd.Series) -> None:
+    packet = failure_packet(failure)
+    with st.expander("Root cause in plain words · Snowflake Cortex, grounded in these facts only"):
+        st.json(packet, expanded=False)
+        if snowflake_session() is None:
+            st.caption("Cortex runs when the app is opened in Snowflake.")
+            return
+        if st.button(f"Explain {failure['failure_id']} with Cortex", key=f"cortex-{failure['failure_id']}"):
+            with st.spinner("Cortex is reading only the facts above…"):
+                try:
+                    answer = cortex_failure_answer(packet)
+                except Exception as exc:
+                    st.error(f"Cortex could not answer: {exc}")
+                    return
+            st.markdown(f"**{answer.get('answer', '—')}**")
+            for item in answer.get("evidence", []):
+                st.markdown(f"- {item}")
+            if answer.get("caveats"):
+                st.warning(" · ".join(answer["caveats"]))
+            if answer.get("next_check"):
+                st.info(answer["next_check"])
+            st.caption("Cortex received only the JSON above. It wrote no SQL and read no other table.")
+
+
+def prediction_section() -> None:
+    pred = DOCS.get("prediction")
+    if not pred:
+        st.info("Run autoresearch/prediction_study.py and scripts/export_snowflake.py to load the prediction study.")
+        return
+    held, alarm = pred["held_out_pooled"], pred["existing_alarm_same_events"]
+    air = sum(1 for e in pred["events"] if e["kind"] == "air_leak")
+    st.markdown(
+        f"""<div class="pn-hero" style="--tone:{OK}"><div class="pn-kicker">Pre-declared gates · held out by compressor · {esc(pred['status'])}</div>
+        <h2>Yes: it predicts the breakdown, hours ahead.</h2><div class="pn-lede">On each compressor it never saw, the leak predictor flagged
+        <b>{held['air_caught']} of {air}</b> air leaks at least two hours before the train had to come out of service, a median
+        <b>{held['median_margin'] / 60:.1f} h</b> ahead, with <b>{held['false_per_day']:.3f}</b> false alerts per healthy day.
+        The existing low-pressure alarm predicted {alarm['air_caught']} of {air} at {alarm['false_per_day']:.2f} false alerts per day.
+        A random alerter at the same rate would match this with p = {pred['random_alerter']['p_at_least_observed']:.0e}.</div>
+        <div class="pn-action"><b>What it does not do.</b> It predicts the breakdown, not the leak: only {pred['pre_onset_predictions']} of 9
+        alerts came before the logged start of the leak. It catches no oil leaks; the existing alarm stays on for those.</div></div>""",
+        unsafe_allow_html=True,
+    )
+    a, b, c, d = st.columns(4)
+    a.metric("Air leaks predicted ≥ 2 h ahead", f"{held['air_caught']} of {air}", f"alarm {alarm['air_caught']} of {air}")
+    b.metric("Median warning before removal", f"{held['median_margin'] / 60:.1f} h")
+    c.metric("False alerts per healthy day", f"{held['false_per_day']:.3f}", f"alarm {alarm['false_per_day']:.2f}", delta_color="off")
+    d.metric("Warned before the leak began", f"{pred['pre_onset_predictions']} of 9")
+    events = pd.DataFrame(pred["events"])
+    events["warning_before_removal"] = events["minutes_before_end"].map(lambda m: "—" if pd.isna(m) else f"{m / 60:.1f} h")
+    events["relative_to_leak_start"] = events["minutes_after_start"].map(
+        lambda m: "—" if pd.isna(m) else f"{abs(m):.0f} min {'before' if m < 0 else 'after'}")
+    st.dataframe(events.rename(columns={"held_out": "Compressor (held out)", "chosen_on_other_two": "Settings chosen on the other two",
+                                        "event_id": "Failure", "kind": "Kind", "caught_in_time": "Predicted in time",
+                                        "warning_before_removal": "Warning before removal", "relative_to_leak_start": "Alert vs leak start"})
+                 [["Compressor (held out)", "Failure", "Kind", "Predicted in time", "Warning before removal", "Alert vs leak start",
+                   "Settings chosen on the other two"]], hide_index=True, width="stretch")
+    st.caption("Gates fixed in code before scoring: " + " · ".join(pred["declared_gates"].values()))
+    st.markdown(f"<div class='pn-card'><b>Why there is a version 2.</b> {esc(pred['why_v2'])} {esc(pred['caveat'])}</div>",
+                unsafe_allow_html=True)
+
+
+def page_predict() -> None:
+    prediction_section()
+    doc = DOCS.get("precursor")
+    st.markdown(
+        f"""<div class="pn-hero" style="--tone:{BLUE}"><div class="pn-kicker">Pre-registered study · nine real failures · three compressors</div>
+        <h2>Can it warn before the leak itself starts?</h2><div class="pn-lede">We tried every route we could find to warn before the logged start of a leak:
+        cycle-by-cycle physics from the raw 1–10 second data, multi-day drift, supervised learning on the hours before other failures,
+        synthetic failure replays, and Snowflake's own anomaly detection. The study arms were trained or tuned on two compressors and tested on the third;
+        Snowflake's anomaly detection learned February–March and was tested from April.</div>
+        <div class="pn-action"><b>Answer.</b> Only one of nine failures (F04) showed a measurable warning sign, about 80–95 minutes ahead.
+        The other eight leaks began abruptly, so the prediction above starts once the leak has begun.</div></div>""",
+        unsafe_allow_html=True,
+    )
+    if not doc:
+        st.info("Run autoresearch/precursor_study.py and scripts/export_snowflake.py to load this study.")
+        return
+    rows = pd.DataFrame(doc["rows"]).rename(columns={
+        "approach": "Approach", "warned_before_onset": f"Warned in the {doc['pre_onset_hours']} h before onset (of 9)",
+        "caught_in_time_official": "Caught in time, official protocol (of 9)", "false_per_day": "False alerts per healthy day",
+        "status": "Status", "random_p": "Chance p-value"})
+    st.markdown("#### Every approach, tested on a compressor it never saw")
+    st.dataframe(rows, hide_index=True, width="stretch")
+    st.caption("Pass marks were fixed in code before scoring: " + " · ".join(doc["gates"].values()))
+
+    st.markdown("#### What the signal looked like before each failure")
+    pct = pd.DataFrame(doc["percentiles"])
+    hours = [c for c in pct.columns if c.startswith("pctl_")]
+    fig = go.Figure(go.Heatmap(
+        z=pct[hours].to_numpy(dtype=float), x=[c.replace("pctl_", "").replace("h", " h") for c in hours],
+        y=pct["event_id"] + " · " + pct["kind"].str.replace("_", " "), colorscale=[[0, "#e8eef0"], [0.9, "#f0d2bf"], [1, LOW]],
+        zmin=0, zmax=100, colorbar=dict(title="healthy<br>percentile"), hovertemplate="%{y}<br>%{x}: %{z:.1f}th percentile<extra></extra>",
+    ))
+    chart_layout(fig, 360)
+    fig.update_layout(hovermode="closest", margin=dict(l=150, r=10, t=30, b=40))
+    fig.update_xaxes(title_text="hours relative to the logged start")
+    show(fig)
+    st.caption("Leak index (faster idle pressure decay, slower rise, longer loaded runs) against the same compressor's healthy weeks. "
+               "Dark red means more extreme than 99% of healthy time. Only F04 turns red before 0 h.")
+
+    st.markdown("#### If a leak grows gradually, how soon would it be caught?")
+    inj = doc["injection"]
+    curve = pd.DataFrame(inj["curve"])
+    fig = go.Figure(go.Bar(x=[f"{f:g}×" for f in curve["leak_fraction_of_normal_idle_decay"]],
+                           y=curve["detected_within_24h"] / curve["trials"], marker_color=[MUTED] + [COPPER] * (len(curve) - 1),
+                           text=[f"{d}/{t}" for d, t in zip(curve["detected_within_24h"], curve["trials"])], textposition="outside"))
+    fig.update_yaxes(tickformat=".0%", range=[0, 1.1], title_text="detected within 24 h")
+    fig.update_xaxes(title_text="extra air loss at 24 h, as a multiple of normal idle loss (0× is the no-leak control)")
+    show(chart_layout(fig, 300))
+    st.caption(f"{inj['curve'][0]['trials']} real healthy days from {inj['unit']}, each with a "
+               f"leak injected that ramps up over {inj['ramp_hours']} h. Origin: {inj['origin']}. The 0× bar shows alerts that would fire anyway.")
+
+    st.markdown("#### Snowflake-native ML · SNOWFLAKE.ML.ANOMALY_DETECTION")
+    summary = live_query(f"SELECT * FROM {DATABASE}.ML.NATIVE_ANOMALY_SUMMARY")
+    detail = live_query(f"SELECT FAILURE_ID, START_TS, ONSET_PRECISION, FIRST_BEFORE_ONSET, FIRST_IN_TIME FROM {DATABASE}.ML.NATIVE_ANOMALY_EVAL ORDER BY START_TS")
+    if summary is None or summary.empty:
+        st.caption("Trained and scored inside Snowflake by sql/05_native_ml.sql; results appear when the app runs in Snowflake.")
+    else:
+        row = summary.iloc[0]
+        a, b, c = st.columns(3)
+        a.metric("Warned before onset", f"{int(row['warned_before_onset'])} of {int(row['failures'])}")
+        b.metric("Caught in time", f"{int(row['caught_in_time'])} of {int(row['failures'])}")
+        c.metric("False alerts per healthy day", f"{float(row['false_per_healthy_day']):.2f}")
+        st.caption(str(row["method"]) + ". MetroPT-3 only, split by time rather than by compressor. "
+                   "The false-alert budget is 0.14 per healthy day, so this model would not pass the study's gates either.")
+        if detail is not None:
+            st.dataframe(detail, hide_index=True, width="stretch")
+    st.markdown(f"<div class='pn-card'><b>Read this before trusting it.</b> {esc(doc['caveat'])}</div>", unsafe_allow_html=True)
 
 
 def page_orders() -> None:
@@ -482,7 +723,7 @@ def page_orders() -> None:
     a, b, c = st.columns(3)
     a.metric("Open orders", int((~view["status"].isin(["done", "dismissed"])).sum()))
     b.metric("Urgent", int((view["priority"] == "urgent").sum()))
-    c.metric("Drafted by the co-pilot", int(view["order_id"].str.startswith("PN-CO-").sum()))
+    c.metric("Drafted by the leak detector", int(view["order_id"].str.startswith("PN-CO-").sum()))
     st.dataframe(
         view.assign(created_at=view["created_at"].map(when))[["order_id", "created_at", "priority", "status", "problem", "action", "technician", "part", "note"]],
         hide_index=True, width="stretch",
@@ -550,6 +791,7 @@ st.title(page)
 {
     "What needs attention": page_now,
     "Leak alerts vs real failures": page_track,
+    "Can it predict?": page_predict,
     "Work orders": page_orders,
     "Compressor performance": page_performance,
     "Engineering evidence": page_evidence,

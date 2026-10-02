@@ -55,13 +55,47 @@ detector once on MetroPT 2022 and MetroPT-2. Download both to
 `scripts/build_units.py` then caches all three units, and
 `autoresearch/louo_study.py` runs the leave-one-compressor-out study. Run both
 before `scripts/build_product.py`, which turns the frozen detector into the
-early air-leak co-pilot: alerts on the Now page and draft work orders labelled
+early air-leak detector: alerts on the Now page and draft work orders labelled
 `CROSS_VALIDATED_NOT_PROMOTED`, running beside the existing alarm.
 
 The physical detector, "compressor stays loaded about an hour", caught 2 of 3
 external air leaks with 1 false alert in 167 healthy days. The existing alarm
 caught the same 2, 15–20 minutes earlier, plus both oil leaks, with 57 false
 alerts. The status stays `NO_PROMOTION`; see `docs/model-card.md`.
+
+## Promoted predictor
+
+`autoresearch/prediction_study.py` (protocol v2) asks whether the detector
+predicts the in-service failure: an alert at least two hours before the train
+must be taken out of service, the dataset owners' definition. Held out by
+compressor, it predicted 6 of 7 air leaks a median 5.8 hours ahead, at 0.056
+false alerts per healthy day; the existing alarm predicted 3 of 7 at 0.49. All
+five pre-declared gates passed, so the status is `PROMOTED_CROSS_VALIDATED`. v2
+was written after v1 failed on false alerts and every failure had been seen;
+see `docs/model-card.md`.
+
+## Before-onset study
+
+`scripts/build_cycles.py` extracts compressor cycle physics from the raw data,
+and `autoresearch/precursor_study.py` tests whether any label-free, supervised
+or replay-augmented arm can warn before reported onset, held out by compressor.
+None passed: the best warned 1 of 9 failures before onset. A leak-injection
+curve on real healthy runs shows a gradual leak at twice normal air loss would
+be flagged in 28 of 30 trials, against 7 of 30 with no leak. The app's
+"Can it predict?" page shows both results.
+
+## Snowflake
+
+Run `sql/00_setup.sql` to `sql/05_native_ml.sql` in order through a client
+session (Cortex Code CLI, Snowflake CLI or SnowSQL).
+
+- `04_actions.sql` creates `OPS.ACTION_LOG` and `OPS.RECORD_ACTION`, the app's
+  only write. Repeating the same acknowledgement returns the same action id.
+- `05_native_ml.sql` trains `SNOWFLAKE.ML.ANOMALY_DETECTION` on February–March
+  and scores April onward against the reported failures: 0 of 4 before onset,
+  4 of 4 caught in time, 0.34 false alerts per healthy day.
+- The app's RCA button calls Cortex `AI_COMPLETE` with a typed response and
+  cites the evidence rows it was given.
 
 ## Limits
 

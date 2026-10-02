@@ -27,9 +27,10 @@ CAMPAIGN = ROOT / "autoresearch" / "campaign.json"
 CHAMPION = ROOT / "autoresearch" / "champion.json"
 FREEZE = ROOT / "autoresearch" / "official_freeze.json"
 LOUO = ROOT / "autoresearch" / "louo_study.json"
+PREDICTION = ROOT / "autoresearch" / "prediction_study.json"
 EXTERNAL = ROOT / "autoresearch" / "external_result.json"
 UNIT_FRAME = PROCESSED / "units" / "METROPT3_UCI_791.parquet"
-COPILOT_STATUS = "CROSS_VALIDATED_NOT_PROMOTED"
+COPILOT_STATUS = json.loads(PREDICTION.read_text(encoding="utf-8"))["status"]
 
 
 def build_copilot() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -59,9 +60,12 @@ def build_copilot() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     alerts["status_label"] = COPILOT_STATUS
     alerts["data_origin"] = DERIVED
     louo = json.loads(LOUO.read_text(encoding="utf-8"))
+    prediction = json.loads(PREDICTION.read_text(encoding="utf-8"))
     external = json.loads(EXTERNAL.read_text(encoding="utf-8"))
+    held, alarm = prediction["held_out_pooled"], prediction["existing_alarm_same_events"]
+    air_events = sum(1 for fold in prediction["folds"] for event in fold["events"] if event["kind"] == "air_leak")
     summary = {
-        "name": "Early air-leak co-pilot",
+        "name": "Early air-leak predictor",
         "status": COPILOT_STATUS,
         "detector": freeze["detector_plain"],
         "threshold_minutes": threshold,
@@ -75,6 +79,14 @@ def build_copilot() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
             "louo_caught": f"{louo['held_out_pooled']['caught']} of {louo['held_out_pooled']['events']}",
             "louo_false_per_day": louo["held_out_pooled"]["false_per_day"],
             "lps_caught_same_events": f"{louo['lps_pooled_same_events']['caught']} of {louo['lps_pooled_same_events']['events']}",
+            "prediction_status": prediction["status"],
+            "air_predicted": f"{held['air_caught']} of {air_events}",
+            "alarm_air_predicted": f"{alarm['air_caught']} of {air_events}",
+            "prediction_false_per_day": held["false_per_day"],
+            "alarm_false_per_day": alarm["false_per_day"],
+            "median_lead_minutes": held["median_margin"],
+            "pre_onset_predictions": prediction["pre_onset_predictions"],
+            "prediction_p": prediction["random_alerter"]["p_at_least_observed"],
         },
         "role": "Runs beside the existing low-pressure alarm. It never replaces it and opens draft work orders for human review only.",
     }

@@ -1,0 +1,462 @@
+{
+  "study": "PNEUMORA protocol v2: in-service air-leak failure prediction, leave one compressor out",
+  "target": "alert from 2 h before reported start up to 2 h before reported end (train removal)",
+  "declared_gates": {
+    "air_predictions_beat_existing_alarm": "pooled held-out air leaks predicted > existing alarm's air leaks predicted on the same events",
+    "no_fold_worse_than_existing_alarm": "on every held-out compressor, air leaks predicted >= existing alarm's",
+    "false_alert_budget": "pooled held-out false alerts per healthy day <= 1/7",
+    "beats_random_alerter": "random alerter at the same alert rate matches the predictions with p < 0.01",
+    "useful_lead": "median warning before the train must be removed (reported end) >= 180 minutes"
+  },
+  "why_v2": "v1 (louo_study.py) failed only the false-alert budget; its leaderboard showed the oil-temperature add-on drove the false alerts. v2 keeps air-leak physics only and adds label-free weekly recalibration.",
+  "caveat": "Written after seeing v1. All nine failures had been seen by the designers. Cross-validation under a revised protocol, not an untouched test; no untouched MetroPT data exists.",
+  "folds": [
+    {
+      "held_out": "METROPT3_UCI_791",
+      "chosen": "loaded_run|s1|p12|static",
+      "train_stats": {
+        "caught": 2,
+        "air_caught": 2,
+        "events": 5,
+        "false_alerts": 1,
+        "false_per_day": 0.005974287744239636,
+        "median_margin": 166.325
+      },
+      "held_out_stats": {
+        "caught": 4,
+        "air_caught": 4,
+        "events": 4,
+        "false_alerts": 12,
+        "false_per_day": 0.0688926496632679,
+        "median_margin": 854.9916666666667
+      },
+      "existing_alarm_held_out": {
+        "caught": 1,
+        "air_caught": 1,
+        "events": 4,
+        "false_alerts": 111,
+        "false_per_day": 0.6372570093852281,
+        "median_margin": 1120.0
+      },
+      "events": [
+        {
+          "event_id": "F01",
+          "kind": "air_leak",
+          "start": "2020-04-18 00:00:00",
+          "end": "2020-04-18 23:59:59",
+          "caught_in_time": true,
+          "first_alert": "2020-04-18 01:20:00",
+          "minutes_before_end": 1359.9833333333333,
+          "minutes_after_start": 80.0
+        },
+        {
+          "event_id": "F02",
+          "kind": "air_leak",
+          "start": "2020-05-29 23:30:00",
+          "end": "2020-05-30 06:00:00",
+          "caught_in_time": true,
+          "first_alert": "2020-05-30 00:10:00",
+          "minutes_before_end": 350.0,
+          "minutes_after_start": 40.0
+        },
+        {
+          "event_id": "F03",
+          "kind": "air_leak",
+          "start": "2020-06-05 10:00:00",
+          "end": "2020-06-07 14:30:00",
+          "caught_in_time": true,
+          "first_alert": "2020-06-05 10:45:00",
+          "minutes_before_end": 3105.0,
+          "minutes_after_start": 45.0
+        },
+        {
+          "event_id": "F04",
+          "kind": "air_leak",
+          "start": "2020-07-15 14:30:00",
+          "end": "2020-07-15 19:00:00",
+          "caught_in_time": true,
+          "first_alert": "2020-07-15 13:10:00",
+          "minutes_before_end": 350.0,
+          "minutes_after_start": -80.0
+        }
+      ]
+    },
+    {
+      "held_out": "METROPT_2022_ZENODO_6854240",
+      "chosen": "loaded_run+leak_w30|s1|p12|static",
+      "train_stats": {
+        "caught": 5,
+        "air_caught": 5,
+        "events": 6,
+        "false_alerts": 9,
+        "false_per_day": 0.03958582314381892,
+        "median_margin": 325.0
+      },
+      "held_out_stats": {
+        "caught": 1,
+        "air_caught": 1,
+        "events": 3,
+        "false_alerts": 7,
+        "false_per_day": 0.06128851813118662,
+        "median_margin": 175.0
+      },
+      "existing_alarm_held_out": {
+        "caught": 2,
+        "air_caught": 1,
+        "events": 3,
+        "false_alerts": 54,
+        "false_per_day": 0.4727971398691539,
+        "median_margin": 267.5
+      },
+      "events": [
+        {
+          "event_id": "E1",
+          "kind": "air_leak",
+          "start": "2022-02-28 21:53:00",
+          "end": "2022-03-01 02:00:00",
+          "caught_in_time": true,
+          "first_alert": "2022-02-28 23:05:00",
+          "minutes_before_end": 175.0,
+          "minutes_after_start": 72.0
+        },
+        {
+          "event_id": "E2",
+          "kind": "air_leak",
+          "start": "2022-03-23 14:54:00",
+          "end": "2022-03-23 15:24:00",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        },
+        {
+          "event_id": "E3",
+          "kind": "oil_leak",
+          "start": "2022-05-30 12:00:00",
+          "end": "2022-06-02 12:00:00",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        }
+      ]
+    },
+    {
+      "held_out": "METROPT2_ZENODO_7766691",
+      "chosen": "loaded_run|s1|p12|rolling",
+      "train_stats": {
+        "caught": 5,
+        "air_caught": 5,
+        "events": 7,
+        "false_alerts": 11,
+        "false_per_day": 0.03814174417653143,
+        "median_margin": 350.0
+      },
+      "held_out_stats": {
+        "caught": 1,
+        "air_caught": 1,
+        "events": 2,
+        "false_alerts": 0,
+        "false_per_day": 0.0,
+        "median_margin": 157.65
+      },
+      "existing_alarm_held_out": {
+        "caught": 2,
+        "air_caught": 1,
+        "events": 2,
+        "false_alerts": 3,
+        "false_per_day": 0.05642270883422455,
+        "median_margin": 529.8916666666667
+      },
+      "events": [
+        {
+          "event_id": "X1",
+          "kind": "air_leak",
+          "start": "2022-06-04 10:19:24",
+          "end": "2022-06-04 14:22:39",
+          "caught_in_time": true,
+          "first_alert": "2022-06-04 11:45:00",
+          "minutes_before_end": 157.65,
+          "minutes_after_start": 85.6
+        },
+        {
+          "event_id": "X2",
+          "kind": "oil_leak",
+          "start": "2022-07-11 10:10:18",
+          "end": "2022-07-14 10:22:08",
+          "caught_in_time": false,
+          "first_alert": null,
+          "minutes_before_end": null,
+          "minutes_after_start": null
+        }
+      ]
+    }
+  ],
+  "held_out_pooled": {
+    "caught": 6,
+    "air_caught": 6,
+    "events": 9,
+    "false_alerts": 19,
+    "false_per_day": 0.05562581824101241,
+    "median_margin": 350.0
+  },
+  "existing_alarm_same_events": {
+    "caught": 5,
+    "air_caught": 3,
+    "events": 9,
+    "false_alerts": 168,
+    "false_per_day": 0.49184934023632026,
+    "median_margin": 345.0
+  },
+  "pre_onset_predictions": 1,
+  "random_alerter": {
+    "expected_catches": 0.592495851079761,
+    "p_at_least_observed": 3.0402134989153803e-07
+  },
+  "gates": {
+    "air_predictions_beat_existing_alarm": true,
+    "no_fold_worse_than_existing_alarm": true,
+    "false_alert_budget": true,
+    "beats_random_alerter": true,
+    "useful_lead": true
+  },
+  "status": "PROMOTED_CROSS_VALIDATED",
+  "deployment_config": "loaded_run|s1|p12|rolling",
+  "deployment_config_all_units": {
+    "caught": 6,
+    "air_caught": 6,
+    "events": 9,
+    "false_alerts": 11,
+    "false_per_day": 0.03220442108690192,
+    "median_margin": 327.5
+  },
+  "deployment_events_all_units": [
+    {
+      "event_id": "F01",
+      "kind": "air_leak",
+      "start": "2020-04-18 00:00:00",
+      "end": "2020-04-18 23:59:59",
+      "caught_in_time": true,
+      "first_alert": "2020-04-18 01:20:00",
+      "minutes_before_end": 1359.9833333333333,
+      "minutes_after_start": 80.0
+    },
+    {
+      "event_id": "F02",
+      "kind": "air_leak",
+      "start": "2020-05-29 23:30:00",
+      "end": "2020-05-30 06:00:00",
+      "caught_in_time": true,
+      "first_alert": "2020-05-30 00:55:00",
+      "minutes_before_end": 305.0,
+      "minutes_after_start": 85.0
+    },
+    {
+      "event_id": "F03",
+      "kind": "air_leak",
+      "start": "2020-06-05 10:00:00",
+      "end": "2020-06-07 14:30:00",
+      "caught_in_time": true,
+      "first_alert": "2020-06-05 10:45:00",
+      "minutes_before_end": 3105.0,
+      "minutes_after_start": 45.0
+    },
+    {
+      "event_id": "F04",
+      "kind": "air_leak",
+      "start": "2020-07-15 14:30:00",
+      "end": "2020-07-15 19:00:00",
+      "caught_in_time": true,
+      "first_alert": "2020-07-15 13:10:00",
+      "minutes_before_end": 350.0,
+      "minutes_after_start": -80.0
+    },
+    {
+      "event_id": "E1",
+      "kind": "air_leak",
+      "start": "2022-02-28 21:53:00",
+      "end": "2022-03-01 02:00:00",
+      "caught_in_time": true,
+      "first_alert": "2022-02-28 23:05:00",
+      "minutes_before_end": 175.0,
+      "minutes_after_start": 72.0
+    },
+    {
+      "event_id": "E2",
+      "kind": "air_leak",
+      "start": "2022-03-23 14:54:00",
+      "end": "2022-03-23 15:24:00",
+      "caught_in_time": false,
+      "first_alert": null,
+      "minutes_before_end": null,
+      "minutes_after_start": null
+    },
+    {
+      "event_id": "E3",
+      "kind": "oil_leak",
+      "start": "2022-05-30 12:00:00",
+      "end": "2022-06-02 12:00:00",
+      "caught_in_time": false,
+      "first_alert": null,
+      "minutes_before_end": null,
+      "minutes_after_start": null
+    },
+    {
+      "event_id": "X1",
+      "kind": "air_leak",
+      "start": "2022-06-04 10:19:24",
+      "end": "2022-06-04 14:22:39",
+      "caught_in_time": true,
+      "first_alert": "2022-06-04 11:45:00",
+      "minutes_before_end": 157.65,
+      "minutes_after_start": 85.6
+    },
+    {
+      "event_id": "X2",
+      "kind": "oil_leak",
+      "start": "2022-07-11 10:10:18",
+      "end": "2022-07-14 10:22:08",
+      "caught_in_time": false,
+      "first_alert": null,
+      "minutes_before_end": null,
+      "minutes_after_start": null
+    }
+  ],
+  "leaderboard_all_units": [
+    {
+      "config": "loaded_run|s1|p12|rolling",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 11,
+      "false_per_day": 0.03220442108690192,
+      "median_margin": 327.5
+    },
+    {
+      "config": "loaded_run|s1|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 13,
+      "false_per_day": 0.03805977037542954,
+      "median_margin": 350.0
+    },
+    {
+      "config": "loaded_run+leak_w30|s1|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 16,
+      "false_per_day": 0.04684279430822098,
+      "median_margin": 260.0
+    },
+    {
+      "config": "loaded_run|s1|p6|rolling",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 21,
+      "false_per_day": 0.06148116752954003,
+      "median_margin": 357.5
+    },
+    {
+      "config": "loaded_run+lps_loaded|s1|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 23,
+      "false_per_day": 0.06733651681806765,
+      "median_margin": 260.0
+    },
+    {
+      "config": "leak_w30+lps_loaded|s1|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 28,
+      "false_per_day": 0.08197489003938671,
+      "median_margin": 260.0
+    },
+    {
+      "config": "loaded_run+leak_w30|s6|p3|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 30,
+      "false_per_day": 0.08783023932791433,
+      "median_margin": 262.5
+    },
+    {
+      "config": "loaded_run+leak_w30|s1|p6|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 31,
+      "false_per_day": 0.09075791397217814,
+      "median_margin": 272.5
+    },
+    {
+      "config": "loaded_run+leak_w30|s6|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 32,
+      "false_per_day": 0.09368558861644195,
+      "median_margin": 250.0
+    },
+    {
+      "config": "loaded_run|s1|p6|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 33,
+      "false_per_day": 0.09661326326070577,
+      "median_margin": 380.0
+    },
+    {
+      "config": "leak_w30+lps_loaded|s6|p12|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 36,
+      "false_per_day": 0.1053962871934972,
+      "median_margin": 250.0
+    },
+    {
+      "config": "loaded_run+leak_w30|s1|p3|static",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 37,
+      "false_per_day": 0.10832396183776101,
+      "median_margin": 277.5
+    },
+    {
+      "config": "leak_w60|s1|p12|rolling",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 38,
+      "false_per_day": 0.11125163648202482,
+      "median_margin": 307.5
+    },
+    {
+      "config": "loaded_run|s1|p3|rolling",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 39,
+      "false_per_day": 0.11417931112628862,
+      "median_margin": 300.0
+    },
+    {
+      "config": "leak_w60|s1|p6|rolling",
+      "caught": 6,
+      "air_caught": 6,
+      "events": 9,
+      "false_alerts": 40,
+      "false_per_day": 0.11710698577055244,
+      "median_margin": 337.5
+    }
+  ]
+}

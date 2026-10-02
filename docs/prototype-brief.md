@@ -1,96 +1,88 @@
-# TRIDENT OPS — submission pack
+# PNEUMORA — submission pack
 
 ## Prototype/MVP Brief
 
 Paste the paragraph below into the form. It is under the 1,024-character limit.
 
-> TRIDENT OPS is an evidence-first Predictive Maintenance and OEE Command Center built on Snowflake. It uses two real public datasets without fabricating a join: PIADE provides two years of packaging-line states, alarms and production counts for weighted OEE, loss ownership and next-hour risk; MetroPT provides compressor sensor and failure evidence on a separate page. Three modular capabilities run end to end: (1) OEE and risk views from governed Snowflake tables, (2) bounded Cortex root-cause narration that cites anonymised alarm-pattern rows and abstains beyond evidence, and (3) an idempotent triage procedure that persists acknowledge, inspect and snooze actions. Every figure is labelled Observed, Derived, Model, Scenario or Operator-entered. The app states its limits: MetroPT is post-onset detection, PIADE has no condition sensors, synthetic ERP is not fact, and no measured OEE lift or realised savings is claimed.
+> PNEUMORA is a predictive-maintenance command center for a real train air compressor, built on Snowflake. Real MetroPT sensor streams (pressure, motor current, oil temperature, load) from three compressors and nine documented failures sit beside labelled synthetic work orders, parts, crew and an example-factory OEE view. Tested on compressors it never saw, its physics leak predictor flagged 6 of 7 air leaks at least 2 h before the train had to leave service, a median 5.8 h ahead, at 0.056 false alerts/day (existing alarm: 3 of 7, 0.49/day). All pre-declared gates passed. It predicts the breakdown, not the leak: only 1 of 9 alerts preceded leak onset. SNOWFLAKE.ML.ANOMALY_DETECTION caught 4 of 4 on a time split. Gradual leaks injected into real data are caught 28 of 30 times at twice normal air loss. Cortex AI_COMPLETE explains each failure citing only observed facts, and a Snowflake procedure records idempotent maintenance decisions.
 
 ## Links
 
-- GitHub branch: `https://github.com/ashokjangam/snowcore-pdm/tree/feat/tridents-ops`
-- Deployed prototype: `https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/bd2ocwt4eblddojvzl7v`
+- GitHub branch: `https://github.com/ashokjangam/snowcore-pdm/tree/feat/pneumora-metropt`
+- Deployed prototype: `https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/df4d72ofa3zbhz6wswdh`
 - Team page: [TRidents on Hack2skill](https://hack2skill.com/event/cococlihack-gccedition/dashboard/team-management?utm_source=hack2skill&utm_medium=homepage)
 - Team leader: [Ashok Jangam](https://www.linkedin.com/in/jangam-ashok-53a95812b/)
 - Demo video: add the final uploaded URL after recording.
 
 ## What to show in the 3–5 minute video
 
-Target duration: **4:15**. Record at 1080p. Use a split narrative: a CoCo CLI
-command proves the processing; the Streamlit page proves the output. Do not tour
-every page.
+Target duration: **4:20**. Record at 1080p. A CoCo CLI prompt proves the
+processing in Snowflake; the Streamlit page proves the operator experience.
 
-### 0:00–0:20 — Cold open: the rule of the demo
+### 0:00–0:25 — The problem, in one asset
 
-On screen: title slide, then TRIDENT OPS sidebar.
+On screen: title slide, then the app's **What needs attention** page.
 
-Say:
+> A metro train's air compressor feeds its brakes and doors. When it leaks, the
+> train has to come out of service. PNEUMORA watches the real sensor streams from
+> that compressor and turns them into a decision a maintenance crew can act on.
 
-> Manufacturing data usually gives us either operations or condition sensors,
-> not a perfect joined dataset. We refused to fake that join. TRIDENT OPS keeps
-> two real plants separate and turns evidence into an auditable decision.
+### 0:25–1:25 — Capability 1: predict the breakdown
 
-### 0:20–1:25 — Capability 1: OEE and ownership
+In CoCo CLI run `docs/demo/01_detect.txt`. It reads `PNEUMORA.CORE.FAILURES`,
+`PNEUMORA.ML.ALERTS` and `PNEUMORA.ML.NATIVE_ANOMALY_SUMMARY`.
 
-In CoCo CLI, run the saved prompt in `docs/demo/01_oee.txt`. It queries
-`SNOWCORE_REAL.GOLD.V_OEE_ROLLUP` and the action queue.
+Then open **Can it predict?** (top section):
 
-Then open **Command Center**:
+1. Held out by compressor: 6 of 7 air leaks flagged at least 2 h before the
+   train had to leave service, a median 5.8 h ahead, at 0.056 false alerts per
+   day. The existing alarm: 3 of 7 at 0.49.
+2. Status `PROMOTED_CROSS_VALIDATED`; point to the five gates under the table.
+3. Say the caveat out loud: this is version 2 of the protocol, written after
+   version 1 failed on false alerts, and no untouched data remains.
 
-1. Point to weighted OEE 46.78%.
-2. Say it is recomputed from summed seconds and packages, not averaged across lines.
-3. Point to waiting/idle. Explain that planning owns idle; maintenance owns faults.
-4. Point to the Evidence Passport and `DERIVED_FROM_OBSERVED`.
+### 1:25–2:20 — Can it see the leak before it starts? We tried everything
 
-### 1:25–2:25 — Capability 2: cited root-cause investigation
+Scroll to the second section of **Can it predict?**
 
-Open **Triage + cited RCA**, choose `s_1` and show the top anonymised alarm.
-Click **Narrate these five rows with Cortex**.
+1. The arms table: label-free physics, three supervised models, synthetic
+   replay, rolling baseline. The best warned 1 of 9 before the leak began.
+2. The heatmap: only F04 turns red before 0 h.
+3. The injection chart: a gradual leak at 2× normal air loss is caught 28 of 30
+   times, against 7 of 30 with no leak.
+4. Native Snowflake ML: 4 of 4 caught in time, 0 before onset.
 
-Say:
+> These leaks start abruptly, so PNEUMORA predicts the breakdown, not the leak.
+> That still gives the crew hours to pull the train before it fails in service.
 
-> Cortex receives only these five rows. It may describe recurrence and timing,
-> but it cannot invent a component because the publisher anonymised the alarm.
+### 2:20–3:15 — Capability 2: root cause in plain words
 
-Point to the cited alarm code, precursor rate, repeat rate and caveat.
+In CoCo CLI run `docs/demo/02_rca.txt`, or in the app open **Leak alerts vs real
+failures**, choose F04 and click **Explain F04 with Cortex**.
 
-### 2:25–3:20 — Capability 3: persistent action
+> Cortex receives only these observed facts. It must quote the field behind every
+> number, may not name a component the report does not name, and ends with one
+> physical check for the next inspection.
 
-In CoCo CLI, run `docs/demo/03_action.txt` twice. The workflow writes the stable
-source key `DEMO_VIDEO|s_2`, selects that exact row, and reports whether the
-second call was deduplicated.
+### 3:15–3:55 — Capability 3: record the decision
 
-Open **Flight Recorder** and show the same `DEMO_VIDEO|s_2` row and action id.
+In CoCo CLI run `docs/demo/03_action.txt`. The first call returns
+`deduplicated: false`, the second the same action id with `deduplicated: true`.
+Open **What needs attention** and show the same row in the decision log.
 
-Say:
+### 3:55–4:20 — Close
 
-> This is not a toast. It is an idempotent Snowflake row with actor, evidence key,
-> timestamp and status, and it survives a reload.
-
-### 3:20–3:55 — Sensor evidence, without overclaiming
-
-Open **Sensor Evidence**. Point to the zero line and signed minutes versus onset.
-
-Say:
-
-> MetroPT gives us real compressor sensors, but the frozen detector usually fires
-> after the leak begins. We label it detection and NO PROMOTION. It is a separate
-> asset and is never joined to packaging OEE.
-
-### 3:55–4:15 — Close
-
-Return to **Command Center**.
-
-> Three capabilities: compute, explain, act. Two real evidence lanes. Zero
-> fabricated joins. TRIDENT OPS makes the limits visible so a plant can trust the
-> decision path.
+> Real sensors, nine real failures, three compressors. A promoted predictor that
+> warns hours before the train must leave service, a study that shows exactly
+> where prediction stops, cited root cause and an auditable decision log, all
+> inside Snowflake.
 
 ## Recording checklist
 
-- Log into Snowflake before recording; pre-open the app and CoCo terminal.
-- Use a clean browser profile and hide account notifications.
-- Run the action once in rehearsal, then delete the rehearsal row.
-- Keep the mouse still while speaking; zoom the browser to 110–125%.
-- Do not show `Financial Risk`, synthetic euro totals, the retired SNOWCORE app,
-  or the PNEUMORA factory-scenario OEE.
+- Log into Snowflake before recording; pre-open the app and the CoCo terminal.
+- Do not rehearse `03_action.txt` on `DEMO_VIDEO|F04`, or the first call will
+  already show `deduplicated: true`. If you must, delete that row afterwards:
+  `DELETE FROM PNEUMORA.OPS.ACTION_LOG WHERE SOURCE_KEY = 'DEMO_VIDEO|F04';`
+- Say "synthetic" whenever work orders, parts, crew or OEE are on screen.
+- Zoom the browser to 110–125%; hide notifications.
 - End with the GitHub URL, prototype URL and deck title on screen for three seconds.

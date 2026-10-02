@@ -1,4 +1,5 @@
--- Upload the read-only Streamlit app and create the app object (warehouse runtime).
+-- Upload the Streamlit app and create the app object (warehouse runtime).
+-- Its only write is PNEUMORA.OPS.RECORD_ACTION. The object name is kept so the app URL does not change.
 -- Replace <REPO_ROOT> with the absolute repository path using forward slashes.
 
 USE ROLE PNEUMORA_ROLE;
@@ -19,5 +20,5 @@ CREATE OR REPLACE STREAMLIT PNEUMORA.APP.PNEUMORA_COPILOT
   MAIN_FILE = 'app.py'
   QUERY_WAREHOUSE = 'PNEUMORA_WH'
   RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME'
-  TITLE = 'PNEUMORA early air-leak co-pilot'
-  COMMENT = 'Read-only PNEUMORA co-pilot track record, status replay and evidence';
+  TITLE = 'PNEUMORA early air-leak predictor'
+  COMMENT = 'PNEUMORA leak predictor: track record, prediction studies, cited RCA and action log';

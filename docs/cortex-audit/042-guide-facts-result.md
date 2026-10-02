@@ -1,0 +1,165 @@
+Running all 13 queries now.## 1. OEE_IDEAL_RATE
+
+| MACHINE_CODE | IDEAL | P99 | MEDIAN_SPEED |
+|---|---|---|---|
+| s_1 | 5000 | 4650 | 4500 |
+| s_2 | 6500 | 6500 | 6500 |
+| s_3 | 4800 | 4800 | 4000 |
+| s_4 | 6500 | 6500 | 5656 |
+| s_5 | 6500 | 6500 | 6175 |
+
+## 2. V_OEE_LOSS_ATTRIBUTION (GRAIN='SITE')
+
+| GRAIN | SUBJECT | LOSS_BUCKET | OWNER_FUNCTION | LOSS_HOURS | FORGONE_UNITS | PCT_OF_SUBJECT | MARGIN_EUR |
+|---|---|---|---|---|---|---|---|
+| SITE | PLANT_B | MAINTENANCE_FAULT | MAINTENANCE | 3147 | 17575658 | 15.3 | 3163618 |
+| SITE | PLANT_B | PERFORMANCE_SLOW_RUNNING | OPERATIONS | 4793 | 37265745 | 32.5 | 6707834 |
+| SITE | PLANT_B | PLANNING_IDLE | PLANNING | 10266 | 59784180 | 52.2 | 10761152 |
+
+## 3. V_IMPROVEMENT_LEVERS (Top 6)
+
+| LEVER_RANK | MACHINE_CODE | LOSS_BUCKET | HOURS | PACKAGES | PCT_SITE_BUCKET | MARGIN_EUR | TOP_CONTRIBUTING_CAUSE |
+|---|---|---|---|---|---|---|---|
+| 1 | s_5 | PLANNING_IDLE | 2627 | 17076063 | 28.6 | 3073691 | IDLE_NO_ALARM |
+| 2 | s_3 | PLANNING_IDLE | 2967 | 14241736 | 23.8 | 2563513 | IDLE_NO_ALARM |
+| 3 | s_1 | PERFORMANCE_SLOW_RUNNING | 1541 | 12579084 | 33.8 | 2264235 | None |
+| 4 | s_4 | PERFORMANCE_SLOW_RUNNING | 1540 | 12564144 | 33.7 | 2261546 | None |
+| 5 | s_2 | PLANNING_IDLE | 1870 | 12153714 | 20.3 | 2187668 | IDLE_NO_ALARM |
+| 6 | s_4 | PLANNING_IDLE | 1535 | 9977016 | 16.7 | 1795863 | IDLE_NO_ALARM |
+
+## 4. V_EXECUTIVE_ACTION_QUEUE
+
+| ACTION_RANK | PRIORITY | OWNER_FUNCTION | MACHINE_CODE | RISK_STATE | EXPOSURE_EUR |
+|---|---|---|---|---|---|
+| 1 | P1 | PLANNING | s_5 | IDLE_DOMINANT | 4965367 |
+| 2 | P1 | PLANNING | s_4 | IDLE_DOMINANT | 4515801 |
+| 3 | P1 | PLANNING | s_3 | IDLE_DOMINANT | 3722839 |
+| 4 | P1 | MAINTENANCE | s_2 | HIGH | 3460731 |
+| 5 | P1 | PLANNING | s_2 | IDLE_DOMINANT | 3460731 |
+| 6 | P1 | SUPPLY_CHAIN | s_4 | STOCKOUT | 14362 |
+| 10 | P1 | SUPPLY_CHAIN | s_2 | STOCKOUT | 11921 |
+| 11 | P1 | SUPPLY_CHAIN | s_1 | STOCKOUT | 11022 |
+| 12 | P1 | SUPPLY_CHAIN | s_5 | STOCKOUT | 10221 |
+| 20 | P2 | MAINTENANCE | s_1 | ELEVATED | 4722730 |
+| 21 | P2 | MAINTENANCE | s_4 | ELEVATED | 4515801 |
+| 22 | P2 | MAINTENANCE | s_3 | ELEVATED | 3722839 |
+| 30 | P2 | SUPPLY_CHAIN | s_3 | REORDER | 13659 |
+| 138 | P3 | MAINTENANCE | s_5 | LOW | 4965367 |
+| 139 | P3 | PLANNING | s_1 | BREAKDOWN_DOMINANT | 4722730 |
+
+## 5. V_PIADE_COST_BY_MACHINE
+
+| MACHINE_CODE | WORK_ORDERS | BD_H | LABOUR | PARTS | BD_MARGIN | MAINT | IDLE_INCIDENTS | IDLE_H | IDLE_MARGIN | PCT_IDLE |
+|---|---|---|---|---|---|---|---|---|---|---|
+| s_1 | 1305 | 492 | 16617 | 45663 | 443027 | 505307 | 401 | 833 | 749579 | 59.7 |
+| s_2 | 605 | 235 | 7929 | 20385 | 274797 | 303109 | 802 | 1331 | 1556847 | 83.7 |
+| s_3 | 268 | 207 | 7001 | 8094 | 179184 | 194279 | 780 | 2735 | 2362797 | 92.4 |
+| s_4 | 158 | 86 | 2913 | 6785 | 100975 | 110673 | 612 | 1198 | 1401770 | 92.7 |
+| s_5 | 220 | 60 | 2039 | 4925 | 70658 | 77621 | 997 | 1963 | 2297077 | 96.7 |
+
+## 6. PRODUCTION_ORDER (by machine)
+
+| MACHINE_CODE | EXPOSURE_EUR | ORDERS | MET | BELOW | AT_RISK |
+|---|---|---|---|---|---|
+| s_1 | 4722730 | 666 | 3 | 0 | 663 |
+| s_2 | 3460731 | 458 | 1 | 0 | 457 |
+| s_3 | 3722839 | 360 | 0 | 0 | 360 |
+| s_4 | 4515801 | 384 | 2 | 0 | 382 |
+| s_5 | 4965367 | 499 | 2 | 0 | 497 |
+
+## 7. PLANT_B_FEATURE_IMPORTANCE (Top 8)
+
+| FEATURE | IMPORTANCE |
+|---|---|
+| HOUR_SIN | 0.0789 |
+| PCT_DOWNTIME_MEAN_72 | 0.056 |
+| MACHINE_S_5 | 0.0558 |
+| MACHINE_S_1 | 0.0379 |
+| MACHINE_S_4 | 0.0369 |
+| PCT_DOWNTIME_MEAN_24 | 0.0325 |
+| MACHINE_S_2 | 0.0286 |
+| RUN_FRAC_MEAN_72 | 0.0276 |
+
+## 8. PLANT_B_CALIBRATION_BAND
+
+| RISK_BAND | HOURS | MEAN_SCORE | ACTUAL_RATE |
+|---|---|---|---|
+| LOW | 391 | 0.291 | 0.261 |
+| MODERATE | 392 | 0.409 | 0.365 |
+| ELEVATED | 391 | 0.502 | 0.437 |
+| HIGH | 392 | 0.698 | 0.707 |
+
+## 9. PLANT_B_MODEL_METRICS
+
+| SCOPE | TEST_ROWS | BASE_RATE | AUC | P | BP | R | TRAIN_ROWS |
+|---|---|---|---|---|---|---|---|
+| FLEET | 1566 | 0.443 | 0.6883 | 0.7643 | 0.6242 | 0.1732 | 21805 |
+| s_1 | 438 | 0.509 | 0.6377 | 0.7273 | 0.6591 | 0.1435 | 21805 |
+| s_2 | 192 | 0.719 | 0.6276 | 0.85 | 0.65 | 0.1232 | 21805 |
+| s_3 | 273 | 0.465 | 0.5926 | 0.6071 | 0.5714 | 0.1339 | 21805 |
+| s_4 | 338 | 0.343 | 0.6302 | 0.6471 | 0.4706 | 0.1897 | 21805 |
+| s_5 | 325 | 0.274 | 0.558 | 0.3333 | 0.3636 | 0.1236 | 21805 |
+
+## 10. PIADE_RESEARCH_CAMPAIGN
+
+**Error:** `SQL compilation error: error line 1 at position 28 — invalid identifier 'TRIALS_COMPLETED'`
+
+## 11. V_PIADE_RESEARCH_TRIALS (campaign 233717d9%)
+
+| TRIAL_NUMBER | MODEL_FAMILY | TRIAL_DECISION | MEAN_AUC | WORST_AUC | IS_CHAMPION |
+|---|---|---|---|---|---|
+| 1 | extra_trees | BASELINE | 0.6879 | 0.678 | FALSE |
+| 2 | extra_trees | KEEP | 0.6872 | 0.6761 | FALSE |
+| 3 | extra_trees | KEEP | 0.6877 | 0.6782 | FALSE |
+| 4 | extra_trees | KEEP | 0.688 | 0.6787 | TRUE |
+| 5 | extra_trees | DISCARD | 0.6852 | 0.6734 | FALSE |
+| 6 | extra_trees | DISCARD | 0.6803 | 0.6613 | FALSE |
+| 7 | random_forest | DISCARD | 0.6835 | 0.6711 | FALSE |
+| 8 | hist_gradient_boosting | DISCARD | 0.6759 | 0.6668 | FALSE |
+| 9 | lightgbm | DISCARD | 0.6621 | 0.648 | FALSE |
+| 10 | hist_gradient_boosting | DISCARD | 0.6804 | 0.6694 | FALSE |
+| 11 | hist_gradient_boosting | DISCARD | 0.6749 | 0.664 | FALSE |
+| 12 | hist_gradient_boosting | DISCARD | 0.6694 | 0.66 | FALSE |
+| 13 | hist_gradient_boosting | DISCARD | 0.68 | 0.6696 | FALSE |
+| 14 | xgboost | DISCARD | 0.6849 | 0.6719 | FALSE |
+| 15 | xgboost | DISCARD | 0.6841 | 0.67 | FALSE |
+| 16 | xgboost | DISCARD | 0.6859 | 0.6713 | FALSE |
+| 17 | xgboost | DISCARD | 0.6863 | 0.6722 | FALSE |
+| 18 | lightgbm | DISCARD | 0.682 | 0.6702 | FALSE |
+| 19 | lightgbm | DISCARD | 0.6794 | 0.6681 | FALSE |
+| 20 | lightgbm | DISCARD | 0.6775 | 0.6597 | FALSE |
+| 21 | lightgbm | DISCARD | 0.6844 | 0.6698 | FALSE |
+| 22 | extra_trees | DISCARD | 0.685 | 0.6736 | FALSE |
+| 23 | random_forest | DISCARD | 0.6801 | 0.6669 | FALSE |
+| 24 | hist_gradient_boosting | DISCARD | 0.6798 | 0.6697 | FALSE |
+| 25 | xgboost | DISCARD | 0.6771 | 0.6655 | FALSE |
+| NULL | None | REJECTED | NULL | NULL | FALSE |
+
+## 12. Pipeline Row Counts
+
+| T | N |
+|---|---|
+| BRONZE.PIADE_INTERVALS_RAW | 429394 |
+| BRONZE.PIADE_HOURLY_RAW | 23376 |
+| SILVER.PIADE_INTERVAL | 429394 |
+| GOLD.PIADE_INTERVAL_SEGMENT | 472659 |
+| GOLD.PIADE_OEE_HOURLY | 45625 |
+| GOLD.PIADE_OEE_DAILY | 2367 |
+| GOLD.PIADE_DOWNTIME_EVENT | 142233 |
+| ML.PLANT_B_FEATURES | 23371 |
+| GOLD.V_ANALYST_DECISION_CONTEXT | 76 |
+| GOLD.WORK_ORDER PLANT_A | 1042 |
+
+## 13. Latest Risk Score per Machine
+
+| MACHINE_CODE | LAST_HOUR | SCORE | RISK_BAND |
+|---|---|---|---|
+| s_1 | 2021-12-31 12:00:00.000 | 0.5206 | ELEVATED |
+| s_2 | 2021-12-31 06:00:00.000 | 0.6682 | HIGH |
+| s_3 | 2022-01-01 22:00:00.000 | 0.5129 | ELEVATED |
+| s_4 | 2022-01-01 22:00:00.000 | 0.5537 | ELEVATED |
+| s_5 | 2022-01-01 11:00:00.000 | 0.2924 | LOW |
+
+---
+
+12 of 13 queries succeeded. Query 10 (`PIADE_RESEARCH_CAMPAIGN`) failed with `invalid identifier 'TRIALS_COMPLETED'` — that column does not exist on the table.

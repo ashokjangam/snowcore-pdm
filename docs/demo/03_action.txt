@@ -1,18 +1,16 @@
-You are demonstrating TRIDENT OPS capability 3: an idempotent operator action.
-Use connection hackathon. Scope all writes to TRIDENT_OPS.OPS.TRIAGE_ACTION.
-Do not change any source object in SNOWCORE_REAL or PNEUMORA.
+You are demonstrating PNEUMORA capability 3: an idempotent maintenance decision.
+Use connection hackathon. The only write allowed is through
+PNEUMORA.OPS.RECORD_ACTION. Do not change any other object.
 
-Call:
-TRIDENT_OPS.OPS.RECORD_TRIAGE_ACTION(
-  'PLANT_B',
-  's_2',
-  'DEMO_VIDEO|s_2',
-  'INSPECTION',
-  'Check the dominant anonymised alarm pattern before the next planned stop',
+Call twice, exactly the same:
+CALL PNEUMORA.OPS.RECORD_ACTION(
+  'DEMO_VIDEO|F04',
+  'INSPECT',
+  'Leak-down test on the main reservoir and dryer drain before the next run',
   CURRENT_USER()
-)
+);
 
-Then select the matching row from TRIDENT_OPS.OPS.TRIAGE_ACTION. Report the
-action id, whether the call was deduplicated, actor, created time, status and
-source key. Explain in one sentence why a second run cannot create a duplicate.
-Do not delete the row; it should remain visible in the Streamlit Flight Recorder.
+Report both results. Then select the matching row from PNEUMORA.OPS.ACTION_LOG
+(ACTION_ID, CREATED_AT, LAST_SEEN_AT, ACTION, STATUS, ACTOR, DATA_ORIGIN).
+Explain in one sentence why the second call could not create a duplicate.
+Do not delete the row; it should remain visible in the app's decision log.

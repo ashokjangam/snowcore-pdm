@@ -1,4 +1,4 @@
-"""Build the six-slide TRIDENT OPS deck from the official hackathon template."""
+"""Build the six-slide PNEUMORA deck from the official hackathon template."""
 
 from __future__ import annotations
 
@@ -16,14 +16,15 @@ TEAM_URL = (
     "team-management?utm_source=hack2skill&utm_medium=homepage"
 )
 LEADER_URL = "https://www.linkedin.com/in/jangam-ashok-53a95812b/"
-APP_URL = "https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/bd2ocwt4eblddojvzl7v"
-REPO_URL = "https://github.com/ashokjangam/snowcore-pdm/tree/feat/tridents-ops"
+APP_URL = "https://app.snowflake.com/streamlit/FMXJOWH/BRC04642/#/apps/df4d72ofa3zbhz6wswdh"
+REPO_URL = "https://github.com/ashokjangam/snowcore-pdm/tree/feat/pneumora-metropt"
 
 WHITE = "F4FAFD"
 MUTED = "A5B7C3"
 CYAN = "36A9E1"
 TEAL = "31D7C5"
 AMBER = "F2B84B"
+COPPER = "D9844F"
 RED = "EF6A72"
 BLUE = "0A5CA8"
 DARK = "0C1822"
@@ -142,8 +143,8 @@ def stat(slide, value, label, note, x, y, w, tone=TEAL):
 
 def fill_title_slide(slide) -> None:
     remove_non_picture_shapes(slide)
-    add_text(slide, "TRIDENT OPS", 6.72, 3.28, 2.78, 0.48, size=29, color=BLUE, bold=True, font="Cambria")
-    add_text(slide, "EVIDENCE-FIRST PREDICTIVE MAINTENANCE + OEE", 6.73, 3.78, 2.74, 0.48, size=10, color=DARK, bold=True)
+    add_text(slide, "PNEUMORA", 6.72, 3.28, 2.78, 0.48, size=29, color=BLUE, bold=True, font="Cambria")
+    add_text(slide, "EARLY AIR-LEAK PREDICTION ON REAL COMPRESSOR SENSORS", 6.73, 3.78, 2.74, 0.48, size=10, color=DARK, bold=True)
     add_rich_text(
         slide,
         [
@@ -166,89 +167,92 @@ def fill_title_slide(slide) -> None:
         "Problem Statement: Predictive Maintenance and OEE Command Center",
         0.48, 4.58, 8.95, 0.30, size=13, color=DARK, bold=True,
     )
-    add_text(slide, "Two evidence lanes. One auditable decision path. Zero fabricated joins.",
+    add_text(slide, "Nine real failures. Three compressors. A breakdown predicted hours ahead.",
              0.48, 5.05, 8.95, 0.26, size=11, color=BLUE, bold=True, align=PP_ALIGN.CENTER)
 
 
 def fill_problem_slide(slide) -> None:
     remove_non_picture_shapes(slide)
-    add_title(slide, "The gap isn't a model. It's a missing thread.", "01 · Problem brief")
+    add_title(slide, "A leaking compressor takes a train out of service.", "01 · Problem brief")
     circle(slide, 0.65, 1.55, 2.25, "102C3A", TEAL)
-    add_text(slide, "PIADE", 1.17, 1.88, 1.2, 0.34, size=22, color=TEAL, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "Real line states\nalarms + package counts\nweighted OEE", 0.94, 2.30, 1.68, 0.84,
+    add_text(slide, "REAL", 1.17, 1.86, 1.2, 0.34, size=22, color=TEAL, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "MetroPT sensors\npressure · current\noil temp · load", 0.94, 2.30, 1.68, 0.84,
              size=11, color=WHITE, align=PP_ALIGN.CENTER)
     circle(slide, 7.08, 1.55, 2.25, "2E2513", AMBER)
-    add_text(slide, "MetroPT", 7.48, 1.88, 1.45, 0.34, size=22, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "Real compressor sensors\n+ failure windows\nno production counts", 7.34, 2.30, 1.75, 0.84,
+    add_text(slide, "LABELLED", 7.38, 1.86, 1.65, 0.34, size=20, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "synthetic work orders\nparts · crew\nexample-factory OEE", 7.34, 2.30, 1.75, 0.84,
              size=11, color=WHITE, align=PP_ALIGN.CENTER)
-    shape_box(slide, 3.48, 1.76, 3.05, 1.78, "1A1D22", radius=False, line=RED)
-    add_text(slide, "NO-JOIN\nFIREWALL", 4.05, 2.03, 1.9, 0.68, size=21, color=RED, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "different plants · no shared key", 3.83, 2.86, 2.35, 0.24, size=9, color=MUTED, align=PP_ALIGN.CENTER)
-    add_text(slide, "The honest product", 0.75, 4.08, 1.8, 0.25, size=11, color=TEAL, bold=True)
+    shape_box(slide, 3.48, 1.70, 3.05, 1.90, "1A1D22", radius=False, line=RED)
+    add_text(slide, "EXISTING ALARM", 3.62, 1.86, 2.77, 0.30, size=16, color=RED, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "3 of 7", 3.62, 2.22, 2.77, 0.50, size=30, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "air leaks flagged \u2265 2 h before removal\n0.49 false alerts per healthy day", 3.62, 2.84, 2.77, 0.55,
+             size=9, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "Same asset, one thread", 0.75, 4.08, 1.6, 0.42, size=11, color=TEAL, bold=True)
     add_text(
         slide,
-        "PIADE drives OEE, ownership and next-hour ranking. MetroPT remains a separate sensor-evidence lane labelled detection—not forecast.",
-        2.30, 3.96, 7.05, 0.66, size=16, color=DARK, bold=True,
+        "PNEUMORA reads the compressor\u2019s real sensor streams, predicts 6 of 7 air-leak breakdowns hours ahead with about a "
+        "ninth of the alarm\u2019s false alerts, and turns each one into a cited, recorded maintenance decision.",
+        2.30, 3.96, 7.05, 0.80, size=15, color=DARK, bold=True,
     )
-    add_footer(slide, "Sources: PIADE DOI 10.5281/zenodo.7071747 · MetroPT-3 DOI 10.24432/C5VW3R · both public")
+    add_footer(slide, "Sources: MetroPT-3 DOI 10.24432/C5VW3R · MetroPT 2022 Zenodo 6854240 · MetroPT-2 Zenodo 7766691 · 9 documented failures")
 
 
 def fill_architecture_slide(slide) -> None:
     remove_non_picture_shapes(slide)
-    add_title(slide, "One console. Two databases. Three working tines.", "02 · Architecture")
+    add_title(slide, "Raw sensor cycles in. A recorded decision out.", "02 · Architecture")
     shape_box(slide, 0.52, 1.50, 1.65, 1.12, "102C3A")
-    add_text(slide, "PIADE CSV", 0.75, 1.72, 1.2, 0.25, size=14, color=TEAL, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "states · alarms · counts", 0.69, 2.09, 1.32, 0.22, size=8, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "MetroPT raw", 0.62, 1.72, 1.45, 0.25, size=14, color=TEAL, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "1 Hz / 10 s · 3 units", 0.62, 2.09, 1.45, 0.22, size=8, color=MUTED, align=PP_ALIGN.CENTER)
     arrow(slide, 2.30, 1.94)
     shape_box(slide, 2.82, 1.36, 2.15, 1.42, "122431")
-    add_text(slide, "SNOWCORE_REAL", 3.05, 1.62, 1.68, 0.26, size=14, color=CYAN, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "BRONZE → SILVER → GOLD → ML", 3.03, 2.03, 1.75, 0.35, size=8, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "CORE + ML", 3.05, 1.62, 1.68, 0.26, size=14, color=CYAN, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "cycle physics · 5-min telemetry\nANOMALY_DETECTION", 2.95, 2.00, 1.90, 0.50, size=8, color=MUTED, align=PP_ALIGN.CENTER)
     shape_box(slide, 0.52, 3.42, 1.65, 1.12, "2E2513")
-    add_text(slide, "MetroPT", 0.75, 3.66, 1.2, 0.25, size=14, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "pressure · current · load", 0.69, 4.03, 1.32, 0.22, size=8, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "Synthetic CMMS", 0.58, 3.66, 1.53, 0.25, size=13, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "labelled, same asset", 0.62, 4.03, 1.45, 0.22, size=8, color=MUTED, align=PP_ALIGN.CENTER)
     arrow(slide, 2.30, 3.86, color=AMBER)
     shape_box(slide, 2.82, 3.28, 2.15, 1.42, "282316")
-    add_text(slide, "PNEUMORA", 3.05, 3.54, 1.68, 0.26, size=14, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
-    add_text(slide, "CORE → ML → evidence", 3.03, 3.95, 1.75, 0.35, size=8, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "OPS", 3.05, 3.54, 1.68, 0.26, size=14, color=AMBER, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "work orders · parts · crew\nACTION_LOG", 2.95, 3.92, 1.90, 0.50, size=8, color=MUTED, align=PP_ALIGN.CENTER)
     arrow(slide, 5.16, 2.38, 0.42, 0.26)
     arrow(slide, 5.16, 3.28, 0.42, 0.26, AMBER)
     shape_box(slide, 5.76, 1.46, 3.68, 3.02, "0E2029", line=TEAL)
-    add_text(slide, "TRIDENT OPS", 6.00, 1.70, 3.20, 0.33, size=22, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "PNEUMORA app", 6.00, 1.70, 3.20, 0.33, size=22, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
     for x, label, note, tone in [
-        (6.02, "COMPUTE", "OEE + baseline", CYAN),
-        (7.10, "EXPLAIN", "bounded Cortex", TEAL),
-        (8.18, "ACT", "idempotent row", AMBER),
+        (6.02, "PREDICT", "leak physics +\nnative ML", CYAN),
+        (7.10, "EXPLAIN", "AI_COMPLETE,\ntyped + cited", TEAL),
+        (8.18, "ACT", "idempotent\nMERGE", AMBER),
     ]:
         circle(slide, x, 2.42, 0.88, PANEL, tone)
-        add_text(slide, label, x + 0.03, 2.68, 0.82, 0.16, size=8, color=tone, bold=True, align=PP_ALIGN.CENTER)
-        add_text(slide, note, x - 0.06, 3.42, 1.00, 0.30, size=8, color=MUTED, align=PP_ALIGN.CENTER)
-    add_text(slide, "TRIDENT_OPS.OPS.TRIAGE_ACTION", 6.10, 4.05, 3.00, 0.20,
+        add_text(slide, label, x + 0.01, 2.76, 0.86, 0.16, size=8, color=tone, bold=True, align=PP_ALIGN.CENTER)
+        add_text(slide, note, x - 0.08, 3.38, 1.04, 0.40, size=8, color=MUTED, align=PP_ALIGN.CENTER)
+    add_text(slide, "PNEUMORA.OPS.RECORD_ACTION", 6.10, 4.05, 3.00, 0.20,
              size=8, color=TEAL, bold=True, align=PP_ALIGN.CENTER)
-    add_footer(slide, "Snowflake: warehouse Streamlit · Snowpark SQL procedures · AI_COMPLETE · governed views")
+    add_footer(slide, "Snowflake: warehouse-runtime Streamlit · SNOWFLAKE.ML.ANOMALY_DETECTION · Cortex AI_COMPLETE · SQL procedure · isolated PNEUMORA database")
 
 
 def fill_evidence_slide(slide) -> None:
     remove_non_picture_shapes(slide)
-    add_title(slide, "Evidence before ego", "03 · Measured impact")
-    stat(slide, "46.78%", "PIADE weighted OEE", "A 64.32% × P 72.93% × Q 99.72%", 0.55, 1.48, 2.75, TEAL)
-    stat(slide, "76.4%", "Blind top-decile precision", "Persistence baseline 62.4%; archived Dec-2021 holdout", 3.62, 1.48, 2.75, CYAN)
-    stat(slide, "+72 / +86", "MetroPT external timing", "minutes after leak onset · NO PROMOTION", 6.69, 1.48, 2.75, AMBER)
-    add_text(slide, "What changed because of the model?", 0.62, 3.27, 3.10, 0.28, size=13, color=DARK, bold=True)
-    add_text(slide, "Not yet measured. OEE lift and realised savings require intervention data.", 0.62, 3.66, 2.80, 0.82, size=11, color=RED, bold=True)
-    add_text(slide, "What did automation prove?", 3.62, 3.27, 2.76, 0.28, size=13, color=DARK, bold=True)
-    add_text(slide, "45 replay orders · 35.6% hit rate · 1.26× random timing · 23% coverage", 3.62, 3.66, 2.76, 0.82, size=11, color="B07400", bold=True)
-    add_text(slide, "What did search teach us?", 6.70, 3.27, 2.68, 0.28, size=13, color=DARK, bold=True)
-    add_text(slide, "25 trials improved validation AUC by 0.0001. Missing signal—not another model—is the ceiling.", 6.70, 3.66, 2.68, 0.82, size=11, color="087F72", bold=True)
-    add_footer(slide, "Every number is Observed, Derived, Model, Scenario or Operator-entered · no unlabelled financial claim")
+    add_title(slide, "It predicts the breakdown hours ahead. Promoted.", "03 · Measured results")
+    stat(slide, "6 of 7", "Air leaks predicted \u2265 2 h ahead", "Held out by compressor · existing alarm 3 of 7 · 0.056 vs 0.49 false alerts/day", 0.55, 1.48, 2.75, TEAL)
+    stat(slide, "5.8 h", "Median warning before removal", "PROMOTED_CROSS_VALIDATED · all five pre-declared gates passed · chance p = 3e-7", 3.62, 1.48, 2.75, CYAN)
+    stat(slide, "1 of 9", "Warned before the leak began", "Leaks start abruptly · best of six approaches · it predicts the breakdown, not the leak", 6.69, 1.48, 2.75, AMBER)
+    add_text(slide, "Snowflake native ML + gradual leaks", 0.62, 3.27, 3.00, 0.28, size=13, color=DARK, bold=True)
+    add_text(slide, "ANOMALY_DETECTION: 4 of 4 in time. Injected 2\u00d7 air-loss leak caught 28 of 30 (control 7).", 0.62, 3.66, 2.80, 0.82, size=11, color="087F72", bold=True)
+    add_text(slide, "What we generated", 3.62, 3.27, 2.76, 0.28, size=13, color=DARK, bold=True)
+    add_text(slide, "Replayed onsets and physics-injected leaks, all SYNTHETIC_TRAINING_ONLY, never used to score.", 3.62, 3.66, 2.76, 0.82, size=11, color="B07400", bold=True)
+    add_text(slide, "Caveats we show on screen", 6.70, 3.27, 2.68, 0.28, size=13, color=DARK, bold=True)
+    add_text(slide, "Protocol v2 written after v1 failed on false alerts; no untouched data left. No oil leaks, RUL or savings.", 6.70, 3.66, 2.68, 0.82, size=11, color=RED, bold=True)
+    add_footer(slide, "Predicted = alert from 2 h before leak start to 2 h before reported end (dataset owners\u2019 protocol) · settings chosen on the other two compressors")
 
 
 def fill_demo_slide(slide) -> None:
     remove_non_picture_shapes(slide)
-    add_title(slide, "The 4-minute proof: compute → explain → act", "04 · End-to-end CoCo CLI workflow")
+    add_title(slide, "The 4-minute proof: predict \u2192 explain \u2192 act", "04 · End-to-end CoCo CLI workflow")
     steps = [
-        ("1", "COMPUTE", "CoCo queries weighted OEE and ownership.\nStreamlit shows the same deterministic row.", CYAN),
-        ("2", "EXPLAIN", "Five alarm-pattern rows go to Cortex.\nThe answer cites codes and states what is unknown.", TEAL),
-        ("3", "ACT", "The operator opens an inspection.\nA Snowflake MERGE writes one reload-safe action.", AMBER),
+        ("1", "PREDICT", "CoCo reads failures, alerts and native-ML results. The app shows the held-out prediction record.", CYAN),
+        ("2", "EXPLAIN", "Observed F04 facts go to Cortex. Every number cites its field; no invented parts.", TEAL),
+        ("3", "ACT", "The crew opens an inspection. A Snowflake MERGE writes one reload-safe row.", AMBER),
     ]
     for index, (number, title, body, tone) in enumerate(steps):
         x = 0.62 + index * 3.10
@@ -260,9 +264,9 @@ def fill_demo_slide(slide) -> None:
             arrow(slide, x + 2.61, 2.02, 0.32, 0.22, tone)
     shape_box(slide, 1.05, 4.16, 7.90, 0.62, "151F26", line=GRID)
     add_text(slide, "BLACK-BOX RESULT", 1.28, 4.34, 1.42, 0.18, size=9, color=TEAL, bold=True)
-    add_text(slide, "same input → same action id → second run deduplicated=true", 2.78, 4.28, 5.75, 0.28,
+    add_text(slide, "same decision \u2192 same action id \u2192 second call deduplicated=true", 2.78, 4.28, 5.75, 0.28,
              size=14, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
-    add_footer(slide, "Saved prompts: docs/demo/01_oee.txt · 02_rca.txt · 03_action.txt")
+    add_footer(slide, "Saved prompts: docs/demo/01_detect.txt · 02_rca.txt · 03_action.txt")
 
 
 def fill_thank_you(slide) -> None:
@@ -272,14 +276,14 @@ def fill_thank_you(slide) -> None:
         slide,
         [
             {"text": "LIVE  ", "bold": True, "color": TEAL},
-            {"text": "TRIDENT OPS", "bold": True, "color": WHITE, "url": APP_URL},
+            {"text": "PNEUMORA", "bold": True, "color": WHITE, "url": APP_URL},
             {"text": "     CODE  ", "bold": True, "color": CYAN},
             {"text": "github.com/ashokjangam/snowcore-pdm", "color": WHITE, "url": REPO_URL},
         ],
         0.76, 4.82, 8.46, 0.23, size=10, color=WHITE, align=PP_ALIGN.CENTER,
     )
-    add_text(slide, "Compute. Explain. Act. Admit what the evidence cannot prove.",
-             1.55, 5.22, 6.90, 0.22, size=10, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
+    add_text(slide, "Predict the breakdown. Explain with evidence. Record the decision. Say where prediction ends.",
+             1.20, 5.22, 7.60, 0.22, size=10, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
 
 
 def build(template: Path, output: Path) -> None:

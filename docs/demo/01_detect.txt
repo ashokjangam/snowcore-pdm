@@ -1,0 +1,18 @@
+You are demonstrating PNEUMORA capability 1: did the leak detector catch each real
+air leak in time? Use connection hackathon. Read only; do not create, alter, insert,
+update, delete, put or remove anything. Query only the PNEUMORA database.
+
+1. From PNEUMORA.CORE.FAILURES, show FAILURE_ID, START_TS, END_TS, REMOVAL_DEADLINE,
+   ONSET_PRECISION, COPILOT_MINUTES_AFTER_START and LPS_MINUTES_AFTER_START.
+   COPILOT_* columns hold the PNEUMORA leak detector; LPS_* is the train's existing
+   low-pressure alarm. In your answer call them "the leak detector" and "the existing
+   alarm"; never say "copilot".
+   A failure counts as caught in time when that method's *_MINUTES_AFTER_START is not
+   null. Count failures, not alert rows: one failure can have several alert rows.
+2. From PNEUMORA.ML.ALERTS, count alerts by SOURCE and OUTCOME.
+3. Show PNEUMORA.ML.NATIVE_ANOMALY_SUMMARY, the SNOWFLAKE.ML.ANOMALY_DETECTION result.
+
+Then answer in three plain sentences: how many leaks each method caught before the
+removal deadline, how many false alerts each raised, and whether any method warned
+before the logged start. If ONSET_PRECISION is 'day', say the timing for that leak is
+uncertain. Do not claim prediction before onset unless a row shows it.

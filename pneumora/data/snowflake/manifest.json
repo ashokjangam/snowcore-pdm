@@ -64,12 +64,12 @@
   },
   "EVIDENCE": {
     "file": "evidence.csv.gz",
-    "rows": 4,
+    "rows": 6,
     "columns": [
       "DOC_KEY",
       "DOC_JSON"
     ],
-    "sha256": "a3f5795eed5fb5f03ee94266a43f84b9195727955200f5d84eb6e7c2f77091c3"
+    "sha256": "3bb878775437a16d448520710891566326be88f6ac4c6c55792c179d81676311"
   },
   "WORK_ORDERS": {
     "file": "work_orders.csv.gz",
@@ -88,7 +88,7 @@
       "NOTE",
       "DATA_ORIGIN"
     ],
-    "sha256": "aacbbf92f404db6882dbbf443bf2619cc1f518923948d4db0164288b0e1ae106"
+    "sha256": "866964bc08237c4392f38fa5e47803b40f63e366f950cff6c8fae74a41f33033"
   },
   "PARTS": {
     "file": "parts.csv.gz",

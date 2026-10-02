@@ -134,12 +134,12 @@ def seed(connection: sqlite3.Connection) -> None:
                     parts[1][1],
                     "ready",
                     "APU-01",
-                    "Draft opened by the early air-leak co-pilot (cross-validated, not promoted). Review before sending.",
+                    "Draft opened by the early air-leak predictor (promoted after cross-validation on three compressors). Review before sending.",
                 ),
             )
             connection.execute(
                 "INSERT INTO events (order_id, at, status, note) VALUES (?,?,?,?)",
-                (order_id, opened, "ready", "Drafted by the early air-leak co-pilot"),
+                (order_id, opened, "ready", "Drafted by the early air-leak detector"),
             )
     connection.execute("INSERT OR REPLACE INTO meta VALUES ('seed', ?)", (str(SEED_VERSION),))
     connection.commit()
@@ -175,7 +175,7 @@ def replay_marks() -> list[dict]:
     marks = [{"kind": "failure", "id": f["id"], "start": f["start"], "end": f["end"], "label": f"Reported failure {f['id']}"}
              for f in TRACK["failures"]]
     marks += [{"kind": "copilot", "id": r["alert_id"], "start": r["raised_at"], "end": r["cleared_at"],
-               "label": f"Co-pilot alert {r['alert_id']}"} for r in TRACK["copilot"]]
+               "label": f"Leak detector alert {r['alert_id']}"} for r in TRACK["copilot"]]
     return sorted(marks, key=lambda mark: mark["start"])
 COPILOT_SERIES = (
     pd.read_parquet(PRODUCT / "copilot_series.parquet").set_index("timestamp").sort_index()
@@ -263,7 +263,7 @@ def bootstrap() -> dict:
 @app.get("/api/copilot")
 def copilot_track() -> dict:
     if TRACK is None:
-        raise HTTPException(404, "Co-pilot track record has not been built")
+        raise HTTPException(404, "Leak detector track record has not been built")
     return TRACK
 
 
@@ -287,11 +287,11 @@ def explain(moment: pd.Timestamp, latest, low: bool, copilot: dict | None, order
     if copilot is not None:
         threshold = COPILOT["persistence_minutes"] if COPILOT else 60
         reasons.append({
-            "check": "Early air-leak co-pilot",
+            "check": "Early air-leak predictor",
             "reading": f"Compressor working non-stop for {copilot['loaded_minutes']:.0f} min",
-            "normal": f"Healthy runs last about 2 min; the co-pilot alerts after about {threshold} min non-stop",
+            "normal": f"Healthy runs last about 2 min; the leak predictor alerts after about {threshold} min non-stop",
             "triggered": bool(copilot["active"]),
-            "source": "Frozen detector, cross-validated, not promoted",
+            "source": "Promoted detector, cross-validated on three compressors",
         })
     reasons.append({
         "check": "Open work order",

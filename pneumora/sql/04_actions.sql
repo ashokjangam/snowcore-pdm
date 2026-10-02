@@ -1,0 +1,67 @@
+-- Operator decisions on leak alerts, stored once per (source, action).
+-- Calling the procedure again with the same source and action updates LAST_SEEN_AT
+-- and returns the same ACTION_ID, so a reload or double click cannot create a duplicate.
+
+USE ROLE PNEUMORA_ROLE;
+USE WAREHOUSE PNEUMORA_WH;
+
+CREATE TABLE IF NOT EXISTS PNEUMORA.OPS.ACTION_LOG (
+  ACTION_ID        VARCHAR       NOT NULL,
+  IDEMPOTENCY_KEY  VARCHAR       NOT NULL,
+  CREATED_AT       TIMESTAMP_TZ  NOT NULL,
+  LAST_SEEN_AT     TIMESTAMP_TZ  NOT NULL,
+  ASSET            VARCHAR       NOT NULL,
+  SOURCE_KEY       VARCHAR       NOT NULL,
+  ACTION           VARCHAR       NOT NULL,
+  STATUS           VARCHAR       NOT NULL,
+  NOTE             VARCHAR,
+  ACTOR            VARCHAR       NOT NULL,
+  DATA_ORIGIN      VARCHAR       NOT NULL
+) COMMENT = 'Operator decisions entered in the PNEUMORA app; idempotent by source and action';
+
+CREATE OR REPLACE PROCEDURE PNEUMORA.OPS.RECORD_ACTION(
+  P_SOURCE_KEY VARCHAR, P_ACTION VARCHAR, P_NOTE VARCHAR, P_ACTOR VARCHAR
+)
+RETURNS VARIANT
+LANGUAGE SQL
+EXECUTE AS OWNER
+AS
+$$
+DECLARE
+  V_KEY VARCHAR;
+  V_ID VARCHAR;
+  V_NOW TIMESTAMP_TZ;
+BEGIN
+  IF (P_ACTION IS NULL OR P_ACTION NOT IN ('ACKNOWLEDGE', 'INSPECT', 'DISMISS')) THEN
+    RETURN OBJECT_CONSTRUCT('ok', FALSE, 'error', 'Unsupported action');
+  END IF;
+  IF (P_SOURCE_KEY IS NULL OR LENGTH(TRIM(P_SOURCE_KEY)) = 0 OR LENGTH(P_SOURCE_KEY) > 120) THEN
+    RETURN OBJECT_CONSTRUCT('ok', FALSE, 'error', 'SOURCE_KEY is required and must be at most 120 characters');
+  END IF;
+  V_KEY := SHA2('APU-01|' || P_SOURCE_KEY || '|' || P_ACTION, 256);
+  V_ID := 'PN-ACT-' || SUBSTR(V_KEY, 1, 16);
+  V_NOW := CURRENT_TIMESTAMP();
+  MERGE INTO PNEUMORA.OPS.ACTION_LOG target
+  USING (
+    SELECT :V_ID AS ACTION_ID, :V_KEY AS IDEMPOTENCY_KEY, :V_NOW AS EVENT_AT, :P_SOURCE_KEY AS SOURCE_KEY,
+           :P_ACTION AS ACTION, LEFT(COALESCE(:P_NOTE, ''), 500) AS NOTE,
+           COALESCE(NULLIF(TRIM(:P_ACTOR), ''), 'UNKNOWN') AS ACTOR
+  ) source
+  ON target.IDEMPOTENCY_KEY = source.IDEMPOTENCY_KEY
+  WHEN MATCHED THEN UPDATE SET
+    LAST_SEEN_AT = source.EVENT_AT,
+    NOTE = IFF(source.NOTE = '', target.NOTE, source.NOTE),
+    ACTOR = source.ACTOR
+  WHEN NOT MATCHED THEN INSERT (
+    ACTION_ID, IDEMPOTENCY_KEY, CREATED_AT, LAST_SEEN_AT, ASSET, SOURCE_KEY, ACTION, STATUS, NOTE, ACTOR, DATA_ORIGIN
+  ) VALUES (
+    source.ACTION_ID, source.IDEMPOTENCY_KEY, source.EVENT_AT, source.EVENT_AT, 'APU-01', source.SOURCE_KEY,
+    source.ACTION, IFF(source.ACTION = 'DISMISS', 'DISMISSED', 'OPEN'), source.NOTE, source.ACTOR, 'OPERATOR_ENTRY'
+  );
+  RETURN (
+    SELECT OBJECT_CONSTRUCT('ok', TRUE, 'action_id', ACTION_ID, 'deduplicated', CREATED_AT <> LAST_SEEN_AT,
+                            'action', ACTION, 'status', STATUS, 'created_at', CREATED_AT)
+    FROM PNEUMORA.OPS.ACTION_LOG WHERE IDEMPOTENCY_KEY = :V_KEY
+  );
+END;
+$$;
