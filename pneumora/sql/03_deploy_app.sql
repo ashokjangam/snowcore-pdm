@@ -1,5 +1,6 @@
 -- Upload the Streamlit app and create the app object (warehouse runtime).
--- Its only write is PNEUMORA.OPS.RECORD_ACTION. The object name is kept so the app URL does not change.
+-- Its writes are PNEUMORA.OPS.RECORD_ACTION, CREATE_WORK_ORDER and SET_WORK_ORDER_STATUS (06_work_orders.sql).
+-- The object name is kept so the app URL does not change.
 -- Replace <REPO_ROOT> with the absolute repository path using forward slashes.
 
 USE ROLE PNEUMORA_ROLE;

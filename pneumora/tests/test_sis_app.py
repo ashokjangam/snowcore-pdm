@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "sis" / "app.py"
 EXPORT = ROOT / "data" / "snowflake"
-PAGES = ["What needs attention", "Leak alerts vs real failures", "Can it predict?", "Work orders", "Compressor performance", "Engineering evidence"]
+PAGES = ["What needs attention", "Leak copilot", "Work orders", "Compressor health", "Engineering evidence"]
 
 pytestmark = pytest.mark.skipif(not (EXPORT / "manifest.json").exists(), reason="run scripts/export_snowflake.py first")
 
@@ -55,6 +55,27 @@ def test_every_page_renders_from_the_export() -> None:
         rendered.sidebar.radio(key="page").set_value(page).run()
         assert not rendered.exception, (page, [item.value for item in rendered.exception])
         assert rendered.title[0].value == page
+
+
+def test_prediction_cases_match_the_scored_study() -> None:
+    import json
+
+    study = json.loads((ROOT / "autoresearch" / "prediction_study.json").read_text(encoding="utf-8"))
+    recorded = {e["event_id"]: e for fold in study["folds"] for e in fold["events"]}
+    cases = exported("prediction_cases")
+    assert len(cases) == len(recorded) == 9
+    for row in cases.itertuples():
+        assert bool(row.predicted_in_time) == recorded[row.event_id]["caught_in_time"], row.event_id
+    assert int(cases.loc[cases["kind"] == "air_leak", "predicted_in_time"].sum()) == study["held_out_pooled"]["air_caught"]
+    assert set(exported("prediction_zoom")["case_id"]) == set(cases["case_id"])
+
+
+def test_work_orders_can_be_created_without_duplicates() -> None:
+    sql = (ROOT / "sql" / "06_work_orders.sql").read_text(encoding="utf-8").upper()
+    assert "PROCEDURE PNEUMORA.OPS.CREATE_WORK_ORDER" in sql and "'DEDUPLICATED', TRUE" in sql
+    assert "PROCEDURE PNEUMORA.OPS.SET_WORK_ORDER_STATUS" in sql
+    source = APP.read_text(encoding="utf-8")
+    assert "OPS.CREATE_WORK_ORDER" in source and "Create work order" in source
 
 
 def test_next_alert_button_moves_the_replay_to_a_copilot_alert() -> None:

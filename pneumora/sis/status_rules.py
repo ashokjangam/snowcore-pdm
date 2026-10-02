@@ -23,6 +23,48 @@ def estimate(recent: pd.DataFrame) -> tuple[str, str]:
     return f"{max(0, minutes * 0.7):.0f}–{minutes * 1.3:.0f} min", "Projected from the recent reservoir-pressure slope. This is not a validated life model."
 
 
+def leak_episode(telemetry: pd.DataFrame, moment: pd.Timestamp) -> dict | None:
+    """The current warning, not the length of whichever cycle happens to be running."""
+    flagged = telemetry.loc[:moment]
+    flagged = flagged[flagged["copilot_flag"].fillna(False).astype(bool)]
+    if flagged.empty:
+        return None
+    times = list(flagged.index)
+    start = times[-1]
+    for index in range(len(times) - 1, 0, -1):
+        if times[index] - times[index - 1] > pd.Timedelta(minutes=30):
+            break
+        start = times[index - 1]
+    runs = flagged.loc[start:moment, "loaded_run_minutes"].dropna()
+    if runs.empty:
+        return None
+    return {
+        "started": start,
+        "latest": float(runs.iloc[-1]),
+        "longest": float(runs.max()),
+        "on_minutes": (moment - start).total_seconds() / 60,
+    }
+
+
+def leak_copy(episode: dict) -> tuple[str, str]:
+    latest = f"{episode['latest']:.0f} min"
+    longest = f"{episode['longest']:.0f} min"
+    started = episode["started"]
+    if episode["on_minutes"] < 15:
+        explanation = (
+            f"Cycles have stayed longer than the normal 2 minutes for about an hour, so the warning just turned on. "
+            f"This cycle is {latest}. The warning stays up as later cycles get longer; it does not mean this one cycle is the whole problem."
+        )
+    else:
+        explanation = (
+            f"This warning has been on since {started:%H:%M}. This cycle is {latest}. "
+            f"The longest cycle since the warning started is {longest}. "
+            f"Healthy cycles last about 2 minutes. The minutes change with each cycle; the warning does not."
+        )
+    reading = f"This cycle {latest}; longest since {started:%H:%M} is {longest}"
+    return explanation, reading
+
+
 def status_at(moment: pd.Timestamp, telemetry: pd.DataFrame, orders: pd.DataFrame, persistence_minutes: int) -> dict:
     """telemetry: ts-indexed 5-minute frame; orders: work orders with created_at as Timestamp."""
     recent = telemetry.loc[moment - pd.Timedelta(hours=4): moment]
@@ -36,20 +78,16 @@ def status_at(moment: pd.Timestamp, telemetry: pd.DataFrame, orders: pd.DataFram
 
     window = telemetry.loc[moment - pd.Timedelta(minutes=10): moment]
     copilot_active = bool(window["copilot_flag"].any()) if not window.empty else False
-    loaded_minutes = 0.0
-    if not window.empty and pd.notna(window["loaded_run_minutes"].iloc[-1]):
-        loaded_minutes = round(float(window["loaded_run_minutes"].iloc[-1]), 1)
+    episode = leak_episode(telemetry, moment) if copilot_active else None
+    loaded_minutes = round(episode["latest"], 1) if episode else 0.0
 
     if low:
         state, title = "low", "Air may run low soon"
-        explanation = "Available air is at the low-air point. This is the existing pressure alarm, not an early forecast."
+        explanation = "Available air is already at the low point. This is the pressure reading right now."
         action = "Hold the next departure and inspect hoses, couplings and the dryer drain."
-    elif copilot_active:
+    elif copilot_active and episode is not None:
         state, title = "watch", "Possible air leak"
-        explanation = (
-            f"The compressor has worked for {loaded_minutes:.0f} minutes without resting. "
-            "Normally it rests every couple of minutes, so air is being held up only by non-stop work."
-        )
+        explanation, _ = leak_copy(episode)
         action = "Walk the air path before the next departure: hoses, couplings, client pipes and the dryer drain."
     elif order is not None:
         state, title = "watch", "Needs attention"
@@ -65,7 +103,7 @@ def status_at(moment: pd.Timestamp, telemetry: pd.DataFrame, orders: pd.DataFram
         action = "No maintenance action is needed right now."
 
     estimate_text, estimate_note = estimate(recent)
-    reasons = explain(moment, latest, low, copilot_active, loaded_minutes, order, estimate_text, persistence_minutes)
+    reasons = explain(moment, latest, low, copilot_active, episode, order, estimate_text, persistence_minutes)
     decided_by = next((r["check"] for r in reasons if r["triggered"]), "Every check is inside its normal range")
     return {
         "state": state, "title": title, "explanation": explanation, "action": action,
@@ -76,23 +114,23 @@ def status_at(moment: pd.Timestamp, telemetry: pd.DataFrame, orders: pd.DataFram
     }
 
 
-def explain(moment, latest, low, copilot_active, loaded_minutes, order, estimate_text, persistence_minutes) -> list[dict]:
+def explain(moment, latest, low, copilot_active, episode, order, estimate_text, persistence_minutes) -> list[dict]:
     if latest is None:
         return [{"check": "Readings", "reading": "No readings in the last four hours", "normal": "Readings every 10 seconds",
                  "triggered": False, "source": "Observed telemetry"}]
     age = (moment - latest.name).total_seconds() / 60
     return [
         {
-            "check": "Existing low-pressure alarm",
+            "check": "Air pressure right now",
             "reading": f"Reservoir {float(latest['reservoirs']):.2f} bar; low-pressure switch on {float(latest['lps']) * 100:.0f}% of the last 5 min",
             "normal": "Reservoir above 7 bar and switch off",
             "triggered": low,
-            "source": "Observed telemetry (train's own alarm)",
+            "source": "Observed reservoir pressure",
         },
         {
             "check": "Early air-leak predictor",
-            "reading": f"Compressor working non-stop for {loaded_minutes:.0f} min",
-            "normal": f"Healthy runs last about 2 min; the leak predictor alerts after about {persistence_minutes} min non-stop",
+            "reading": leak_copy(episode)[1] if episode else "Not warning",
+            "normal": f"Healthy cycles last about 2 min. The warning turns on after cycles stay longer than that for about {persistence_minutes} min.",
             "triggered": copilot_active,
             "source": "Promoted detector, cross-validated on three compressors",
         },

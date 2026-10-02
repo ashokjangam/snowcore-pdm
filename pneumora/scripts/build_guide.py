@@ -22,6 +22,7 @@ TRACK = load(ROOT / "data" / "product" / "copilot_track.json")
 OFFICIAL = load(RESEARCH / "official_study.json")
 EXTERNAL = load(RESEARCH / "external_result.json")
 LOUO = load(RESEARCH / "louo_study.json")
+PREDICTION = load(RESEARCH / "prediction_study.json")
 SYNTH = load(RESEARCH / "synthetic_model_study.json")
 FREEZE = load(RESEARCH / "official_freeze.json")
 MANIFEST = load(ROOT / "data" / "snowflake" / "manifest.json")
@@ -178,7 +179,8 @@ def gate_list(gates: dict) -> str:
 
 def snowflake_rows() -> list[list]:
     schema = {"TELEMETRY_5M": "CORE", "FAILURES": "CORE", "DAILY_KPIS": "CORE", "FAILURE_ZOOM": "ML", "ALERTS": "ML",
-              "EVIDENCE": "ML", "WORK_ORDERS": "OPS", "PARTS": "OPS", "TECHNICIANS": "OPS", "FACTORY_SCENARIO": "OPS"}
+              "EVIDENCE": "ML", "WORK_ORDERS": "OPS", "PARTS": "OPS", "TECHNICIANS": "OPS", "FACTORY_SCENARIO": "OPS",
+              "PREDICTION_CASES": "ML", "PREDICTION_ZOOM": "ML"}
     origin = {"CORE": badge("obs"), "ML": badge("der"), "OPS": badge("syn")}
     return [[f"<code>PNEUMORA.{schema[name]}.{name}</code>", origin[schema[name]], f"{item['rows']:,}", e(", ".join(item["columns"]))]
             for name, item in MANIFEST.items()]
@@ -187,12 +189,13 @@ def snowflake_rows() -> list[list]:
 def build() -> str:
     tally = TRACK["tally"]
     louo_model, louo_lps = LOUO["held_out_pooled"], LOUO["lps_pooled_same_events"]
+    v2 = PREDICTION["held_out_pooled"]
     final = OFFICIAL["final_result"]
     pooled = EXTERNAL["pooled"]
     synth_model = SYNTH["model"]
     control = SYNTH["wrong_physics_control"]
     nav = [
-        ("summary", "0 · One-page summary"), ("doing", "1 · How the co-pilot is doing"), ("problem", "2 · The problem"),
+        ("summary", "0 · One-page summary"), ("model", "The model in the app"), ("doing", "1 · How the co-pilot is doing"), ("problem", "2 · The problem"),
         ("journey", "3 · What we tried"), ("data", "4 · The three datasets"), ("signal", "5 · The signal"),
         ("detector", "6 · The co-pilot detector"), ("protocol", "7 · How it is judged"), ("results", "8 · Every study result"),
         ("forecast", "9 · Why no hours-ahead forecast"), ("track", "10 · Track record"), ("product", "11 · The product"),
@@ -202,20 +205,62 @@ def build() -> str:
     sections = f"""
 <section id="summary">
 <h1>PNEUMORA: the complete A to Z guide</h1>
-<p class="lede">An early air-leak co-pilot for a Porto metro train's air production unit (APU), built on the public MetroPT datasets.
-It watches one physical signal, how long the compressor works without resting, and alerts when an air leak is probably developing.
-It runs beside the train's existing low-pressure alarm and never replaces it.</p>
+<p class="lede">Pneumora is an air-leak copilot for three Metro do Porto train compressors, built on the public MetroPT datasets.
+It watches how long the compressor keeps pumping without its usual rest, and warns when that run has gone on too long.
+It does not catch every failure. The count is 6 of 7 air leaks, which is 6 of 9 failures once the two oil leaks are included.</p>
 <div class="grid g4">
-  <div class="tile"><div class="k">Model status</div><div class="v" style="color:var(--amber)">Not promoted</div><div class="n">Four pre-declared studies, all <code>NO_PROMOTION</code>. Shipped as a labelled co-pilot.</div></div>
-  <div class="tile"><div class="k">Held-out failures caught</div><div class="v">{louo_model['caught']} of {louo_model['events']}</div><div class="n">Existing alarm: {louo_lps['caught']} of {louo_lps['events']}. Air leaks {louo_model['air_caught']} of 7 vs {louo_lps['air_caught']} of 7.</div></div>
-  <div class="tile"><div class="k">False alerts per healthy day</div><div class="v">{louo_model['false_per_day']:.3f}</div><div class="n">Budget 0.143 (one per week). Existing alarm {louo_lps['false_per_day']:.3f}. This is the gate that failed.</div></div>
-  <div class="tile"><div class="k">Deployed</div><div class="v" style="color:var(--teal)">Snowflake</div><div class="n"><a href="{APP_URL}">PNEUMORA_COPILOT</a> in database <code>PNEUMORA</code>, warehouse <code>PNEUMORA_WH</code>.</div></div>
+  <div class="tile"><div class="k">Model status</div><div class="v" style="color:var(--teal)">Promoted</div><div class="n">Protocol v2, <code>{e(PREDICTION['status'])}</code>. Cross-validation, not a blind test.</div></div>
+  <div class="tile"><div class="k">Air leaks warned in time</div><div class="v">{v2['air_caught']} of 7</div><div class="n">The miss is E2. E3 and X2 are oil leaks, so they are not in the 7.</div></div>
+  <div class="tile"><div class="k">False alerts per healthy day</div><div class="v">{v2['false_per_day']:.3f}</div><div class="n">Budget was 0.143, one per week. Median warning {v2['median_margin'] / 60:.1f} h before the train had to come off.</div></div>
+  <div class="tile"><div class="k">Warned before the leak started</div><div class="v">{PREDICTION['pre_onset_predictions']} of 9</div><div class="n">Only F04. The others are caught after the failure is already logged.</div></div>
 </div>
-<div class="plain"><b class="t">In one sentence.</b> On the nine real failures we have, the co-pilot catches more air leaks in time than the existing alarm with about a third of its false alerts, but it still raises slightly more than one false alert a week, so it is shown as an assistant, not a promoted prediction model.</div>
+<div class="plain"><b class="t">In one sentence.</b> On compressors it has not used to choose its settings, Pneumora warns in time on 6 of 7 air leaks, about {v2['median_margin'] / 60:.1f} hours before the train has to come out of service, with about one false alert every {1 / v2['false_per_day']:.0f} healthy days. It misses the 30-minute air leak E2 and both oil leaks.</div>
+</section>
+
+<section id="model">
+<h2>The model in the app, in plain English</h2>
+<p>Nothing was changed in order to predict every failure. The app does not predict every failure. E2, E3 and X2 have no Pneumora warning because the scored result has no warning there. That is the model, not a missing line on the chart.</p>
+<div class="grid g2">
+<div class="card"><h3>What "6 of 7" means</h3>
+<p>There are 7 air leaks: F01, F02, F03, F04, E1, E2 and X1. Pneumora warned in time on all of them except E2. There are also 2 oil leaks, E3 and X2. Those are not in the 7. Counted together, that is 6 of 9 failures.</p>
+<ul>
+<li><b>E2</b> is an air leak that lasted 30 minutes (23 Mar 2022, 14:54 to 15:24). A warning only counts if it arrives at least 2 hours before the train has to come off. That deadline was 13:24, before the leak was even logged, so a timely warning was impossible once the leak had started. Pneumora also did not warn before it.</li>
+<li><b>E3 and X2</b> are oil leaks lasting about three days each. The detector never looks at oil. An empty Pneumora line on those two graphs is the correct result.</li>
+</ul>
+</div>
+<div class="card"><h3>What actually changed from the previous model</h3>
+<p>The earlier leave-one-compressor-out study (section 8) failed one pass mark: too many false alerts. Its own comparison showed that adding oil temperature caused those extra alerts. Protocol v2, which is the model in the app, made two changes and then froze the pass marks before scoring:</p>
+<ul>
+<li>It dropped oil temperature and every generic anomaly score. It keeps air-leak physics only.</li>
+<li>It can retune its threshold every week from the compressor's own recent healthy running, still without using failure labels. Compressor C uses that weekly retune. A and B use one threshold, set once.</li>
+</ul>
+<p>All five pass marks then passed, so the status is promoted. This is still cross-validation. All nine failures had already been seen while the rules were written. There is no untouched MetroPT data left.</p>
+</div>
+</div>
+<h3>How it is trained</h3>
+<p>It is not a neural network, and it is not Snowflake's anomaly detector. Snowflake native ML is a separate experiment (section below). The detector in the app is a threshold on a physical measurement, chosen without failure labels, then the choice of which measurement to trust is made on the other compressors.</p>
+<table><thead><tr><th>Piece</th><th>What it means</th></tr></thead><tbody>
+<tr><td>Readings</td><td>Real MetroPT sensors, resampled to one row every 5 minutes. Compressor A is MetroPT-3 (2020). B is MetroPT 2022. C is MetroPT-2.</td></tr>
+<tr><td>The main signal</td><td><code>loaded_run</code>: how many minutes the compressor has been pumping without a rest. A healthy run is about 2 minutes. During an air leak it cannot catch up, so the run stretches to hours.</td></tr>
+<tr><td>The second signal, compressor B only</td><td><code>leak_w30</code>: over 30 minutes, how hard the compressor is working multiplied by how badly the air pressure fails to rise, compared with that compressor's own healthy rate.</td></tr>
+<tr><td>Smoothing <code>s1</code></td><td>No extra smoothing. Each 5-minute reading is used as it is.</td></tr>
+<tr><td>Persistence <code>p12</code></td><td>The signal must stay over the threshold for 12 readings in a row, which is 60 minutes. A short blip does not raise an alert.</td></tr>
+<tr><td>Threshold</td><td>No failure labels. After 21 days of learning what normal looks like, the next 14 days pick the lowest threshold that would have raised at most one alert per 7 healthy days. <code>static</code> keeps that one number. <code>rolling</code> repeats the same rule every 7 days on the previous 14 days.</td></tr>
+<tr><td>Which recipe</td><td>For each compressor, every recipe is scored on the other two. The recipe that catches the most air leaks without breaking the false-alert budget is the one applied to the held-out compressor. It is applied once.</td></tr>
+<tr><td>What counts as in time</td><td>An alert between 2 hours before the failure was logged and 2 hours before the train had to come out of service. That second time is the operator's removal need from the dataset paper.</td></tr>
+</tbody></table>
+<table><thead><tr><th>Held-out compressor</th><th>Recipe chosen on the other two</th><th>Air leaks warned</th><th>What it missed</th></tr></thead><tbody>
+<tr><td>A · MetroPT-3</td><td><code>loaded_run | s1 | p12 | static</code></td><td>4 of 4</td><td>Nothing on this compressor. F04 is the only warning that arrived before the failure was logged (80 minutes).</td></tr>
+<tr><td>B · MetroPT 2022</td><td><code>loaded_run + leak_w30 | s1 | p12 | static</code></td><td>1 of 2</td><td>E2, the 30-minute air leak. E3, an oil leak.</td></tr>
+<tr><td>C · MetroPT-2</td><td><code>loaded_run | s1 | p12 | rolling</code></td><td>1 of 1</td><td>X2, an oil leak. No air leak was missed here.</td></tr>
+</tbody></table>
+<div class="warn"><b class="t">What this model will not do.</b> It will not warn hours before a leak starts, except on F04. It will not see an oil leak. It will not say which hose or valve failed. Nine failures is a small sample, so these rates are coarse. Snowflake Cortex can explain a result in the app, but only from these facts. It is not the detector.</div>
+<p>Sections 3 and 8 below are the earlier attempts, including the study that was not promoted. They are not the model running in the app.</p>
 </section>
 
 <section id="doing">
 <h2>1 · How the co-pilot is doing</h2>
+<div class="plain"><b class="t">This section is the earlier, unpromoted study.</b> The model in the app is protocol v2, described above. It passed the false-alert budget. The numbers below did not, and they are kept so the path is visible.</div>
 <div class="grid g2">
 <div class="card"><h3>What is working</h3><ul>
 <li>On the four MetroPT-3 leaks it alerted on all four in time. The existing alarm caught {tally['low_pressure_alarm']['caught_in_time']}. On F04 it alerted <b>80 minutes before</b> the reported start, because the compressor's runs had already stretched to 3–5 minutes (normal is about 2).</li>
@@ -393,8 +438,8 @@ It runs beside the train's existing low-pressure alarm and never replaces it.</p
 <section id="not">
 <h2>15 · What PNEUMORA does NOT do</h2>
 <ul>
-<li>It is not a promoted prediction model. It failed the false-alert budget.</li>
-<li>It does not forecast leaks hours ahead; it detects them about an hour after onset.</li>
+<li>It does not warn on every failure. E2, E3 and X2 have no warning. E2 was too short to score. E3 and X2 are oil leaks.</li>
+<li>It does not forecast leaks hours ahead, except F04. Most warnings come after the failure is already logged.</li>
 <li>It does not detect oil leaks.</li>
 <li>It does not diagnose which component failed.</li>
 <li>Time-to-low-air is a live pressure projection, not a validated remaining-useful-life model.</li>

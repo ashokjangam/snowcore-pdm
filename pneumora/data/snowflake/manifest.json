@@ -88,7 +88,7 @@
       "NOTE",
       "DATA_ORIGIN"
     ],
-    "sha256": "866964bc08237c4392f38fa5e47803b40f63e366f950cff6c8fae74a41f33033"
+    "sha256": "e33cae27ed465f86168739e58ead1019358354fe965629cac5cab7c852e0355e"
   },
   "PARTS": {
     "file": "parts.csv.gz",
@@ -148,5 +148,41 @@
       "DISCLAIMER"
     ],
     "sha256": "61e90aa91fa7081831b1f0c300a26e33d7bec5ad078a146283f6b3ef1abf5bc7"
+  },
+  "PREDICTION_CASES": {
+    "file": "prediction_cases.csv.gz",
+    "rows": 9,
+    "columns": [
+      "CASE_ID",
+      "UNIT",
+      "COMPRESSOR",
+      "EVENT_ID",
+      "KIND",
+      "START_TS",
+      "END_TS",
+      "LAST_USEFUL_ALERT",
+      "PREDICTED_IN_TIME",
+      "FIRST_ALERT",
+      "MINUTES_BEFORE_END",
+      "MINUTES_AFTER_START",
+      "ALARM_IN_TIME",
+      "ALARM_FIRST",
+      "ALARM_MINUTES_BEFORE_END",
+      "CONFIG"
+    ],
+    "sha256": "f021f74f115a152a5d1c2f3e52091be77aa0e162d2d246945edbbc986b62c882"
+  },
+  "PREDICTION_ZOOM": {
+    "file": "prediction_zoom.csv.gz",
+    "rows": 3987,
+    "columns": [
+      "CASE_ID",
+      "TS",
+      "LOADED_RUN_MINUTES",
+      "PRESSURE",
+      "ALERTING",
+      "ALARM_ON"
+    ],
+    "sha256": "d56ed6020a5910ebff8ae65189dc330f97457c88daf9f5afd45b685a82bd6791"
   }
 }

@@ -20,11 +20,19 @@ PRODUCT = ROOT / "data" / "product"
 PROCESSED = ROOT / "data" / "processed"
 RESEARCH = ROOT / "autoresearch"
 DB_PATH = Path(os.environ.get("PNEUMORA_DB", ROOT / "data" / "cmms.sqlite"))
-SEED_VERSION = 4
+SEED_VERSION = 5
 
 app = FastAPI(title="PNEUMORA")
 app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
 app.mount("/static", StaticFiles(directory=ROOT / "web"), name="static")
+
+
+def leak_sentence(minutes: float) -> str:
+    shown = f"{minutes / 60:.1f} hours" if minutes >= 120 else f"{minutes:.0f} minutes"
+    return (
+        f"The compressor ran {shown} without a rest. "
+        "A healthy run is about 2 minutes, so air may be leaking."
+    )
 
 
 def connect() -> sqlite3.Connection:
@@ -128,7 +136,7 @@ def seed(connection: sqlite3.Connection) -> None:
                     alert.alert_id,
                     opened,
                     "planned",
-                    "The compressor has worked for an hour without resting. This can mean an air leak.",
+                    leak_sentence(float(alert.peak_loaded_minutes)),
                     "Walk the air path: hoses, couplings, client pipes and the dryer drain.",
                     crew[index % len(crew)][1],
                     parts[1][1],
@@ -192,10 +200,25 @@ def copilot_at(moment: pd.Timestamp) -> dict | None:
     if window.empty:
         return {**base, "active": False, "loaded_minutes": 0}
     latest = window.iloc[-1]
+    active = bool(window["copilot_flag"].any())
+    started, longest = None, float(latest["loaded_run_minutes"] or 0)
+    if active:
+        flagged = COPILOT_SERIES.loc[:moment]
+        flagged = flagged[flagged["copilot_flag"].fillna(False).astype(bool)]
+        times = list(flagged.index)
+        started = times[-1]
+        for index in range(len(times) - 1, 0, -1):
+            if times[index] - times[index - 1] > pd.Timedelta(minutes=30):
+                break
+            started = times[index - 1]
+        longest = float(flagged.loc[started:moment, "loaded_run_minutes"].max())
     return {
         **base,
-        "active": bool(window["copilot_flag"].any()),
+        "active": active,
         "loaded_minutes": round(float(latest["loaded_run_minutes"] or 0), 1),
+        "started": None if started is None else started.isoformat(sep=" ", timespec="minutes"),
+        "longest_minutes": round(longest, 1),
+        "on_minutes": 0 if started is None else (moment - started).total_seconds() / 60,
     }
 DATABASE = connect()
 seed(DATABASE)
@@ -277,19 +300,21 @@ def explain(moment: pd.Timestamp, latest, low: bool, copilot: dict | None, order
     age = (moment - pd.Timestamp(latest["timestamp"])).total_seconds() / 60
     reasons = [
         {
-            "check": "Existing low-pressure alarm",
+            "check": "Air pressure right now",
             "reading": f"Reservoir {reservoir:.2f} bar; low-pressure switch on {lps * 100:.0f}% of the last 5 min",
             "normal": "Reservoir above 7 bar and switch off",
             "triggered": low,
-            "source": "Observed telemetry (train's own alarm)",
+            "source": "Observed reservoir pressure",
         }
     ]
     if copilot is not None:
         threshold = COPILOT["persistence_minutes"] if COPILOT else 60
         reasons.append({
             "check": "Early air-leak predictor",
-            "reading": f"Compressor working non-stop for {copilot['loaded_minutes']:.0f} min",
-            "normal": f"Healthy runs last about 2 min; the leak predictor alerts after about {threshold} min non-stop",
+            "reading": (
+                f"This cycle {copilot['loaded_minutes']:.0f} min; longest since the warning started is {copilot.get('longest_minutes', copilot['loaded_minutes']):.0f} min"
+            ),
+            "normal": f"Healthy cycles last about 2 min. The warning turns on after cycles stay longer than that for about {threshold} min.",
             "triggered": bool(copilot["active"]),
             "source": "Promoted detector, cross-validated on three compressors",
         })
@@ -335,14 +360,23 @@ def now(at: str) -> dict:
     copilot = copilot_at(moment)
     if low:
         state, title = "low", "Air may run low soon"
-        explanation = "Available air is at the low-air point. This is the existing pressure alarm, not an early forecast."
+        explanation = "Available air is already at the low point. This is the pressure reading right now."
         action = "Hold the next departure and inspect hoses, couplings and the dryer drain."
     elif copilot and copilot["active"]:
         state, title = "watch", "Possible air leak"
-        explanation = (
-            f"The compressor has worked for {copilot['loaded_minutes']:.0f} minutes without resting. "
-            "Normally it rests every couple of minutes, so air is being held up only by non-stop work."
-        )
+        started = pd.Timestamp(copilot["started"]) if copilot.get("started") else moment
+        if copilot.get("on_minutes", 0) < 15:
+            explanation = (
+                f"Cycles have stayed longer than the normal 2 minutes for about an hour, so the warning just turned on. "
+                f"This cycle is {copilot['loaded_minutes']:.0f} min. The warning stays up as later cycles get longer; "
+                f"it does not mean this one cycle is the whole problem."
+            )
+        else:
+            explanation = (
+                f"This warning has been on since {started:%H:%M}. This cycle is {copilot['loaded_minutes']:.0f} min. "
+                f"The longest cycle since the warning started is {copilot['longest_minutes']:.0f} min. "
+                f"Healthy cycles last about 2 minutes. The minutes change with each cycle; the warning does not."
+            )
         action = "Walk the air path before the next departure: hoses, couplings, client pipes and the dryer drain."
     elif recent_order:
         state, title = "watch", "Needs attention"

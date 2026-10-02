@@ -42,6 +42,7 @@ pneumora/data/raw/
 pneumora/data/processed/
 pneumora/data/product/
 pneumora/data/*.sqlite
+pneumora/data/local_ops.json
 pneumora/autoresearch/*.joblib
 pneumora/autoresearch/*.parquet
 
