@@ -2,7 +2,7 @@
   "snow_connection": "patient360",
   "database": "PATIENT_360",
   "schema": "RAW",
-  "warehouse": "PATIENT_360_XS",
+  "warehouse": "PATIENT_360_WH",
   "role": "",
   "stage": "PATIENT_360_RAW",
   "file_format": "PATIENT_360_CSV",

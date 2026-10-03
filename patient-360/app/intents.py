@@ -41,6 +41,25 @@ _RISK = re.compile(
 )
 _ALLERGY = re.compile(r"\ballerg", re.IGNORECASE)
 _MEDICATION = re.compile(r"\b(antihistamine|fexofenadine)\b", re.IGNORECASE)
+_MEDICATION_LIST = re.compile(
+    r"\b(medication list|medications|medicines|dispenses?)\b", re.IGNORECASE
+)
+_CONDITION = re.compile(
+    r"\b(active conditions?|condition history|conditions?|problems?|diagnoses|diagnosis)\b",
+    re.IGNORECASE,
+)
+_CARE_PLAN = re.compile(r"\bcare\s*plans?|plan of care\b", re.IGNORECASE)
+_LAB = re.compile(
+    r"\b(labs?|laboratory|observations?|a1c|hba1c|hemoglobin a1c)\b", re.IGNORECASE
+)
+_PROCEDURE = re.compile(r"\bprocedures?|surgeries|surgical\b", re.IGNORECASE)
+_IMMUNIZATION = re.compile(r"\bimmuni[sz]ations?|vaccines?|vaccinations?\b", re.IGNORECASE)
+_CLAIM = re.compile(r"\bclaims?|billing|appointment id|claim encounter\b", re.IGNORECASE)
+_COVERAGE = re.compile(r"\bcoverage|payer|insurance|member id\b", re.IGNORECASE)
+_MEMBER_SUMMARY = re.compile(
+    r"\b(member summary|patient summary|recent encounters?|encounter history|chart summary)\b",
+    re.IGNORECASE,
+)
 
 _REFUSAL_INTENTS = (
     Intent.REFUSE_MEDICATION_CHANGE,
@@ -81,6 +100,24 @@ def classify_intent(question: str) -> Intent:
         return Intent.ALLERGY_CITATION
     if _MEDICATION.search(text):
         return Intent.MEDICATION_CITATION
+    if _MEDICATION_LIST.search(text):
+        return Intent.MEDICATION_LIST
+    if _CARE_PLAN.search(text):
+        return Intent.CARE_PLAN_LIST
+    if _CONDITION.search(text):
+        return Intent.CONDITION_LIST
+    if _LAB.search(text):
+        return Intent.LAB_RESULTS
+    if _PROCEDURE.search(text):
+        return Intent.PROCEDURE_LIST
+    if _IMMUNIZATION.search(text):
+        return Intent.IMMUNIZATION_LIST
+    if _CLAIM.search(text):
+        return Intent.CLAIM_ENCOUNTER
+    if _COVERAGE.search(text):
+        return Intent.COVERAGE_LIST
+    if _MEMBER_SUMMARY.search(text):
+        return Intent.MEMBER_SUMMARY
     return Intent.NO_CITATION
 
 

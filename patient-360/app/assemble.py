@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import assert_never
 
-from app.answers import answer_allergy, answer_medication, answer_risk
+from app.answers import (
+    answer_allergy,
+    answer_claims,
+    answer_clinical_list,
+    answer_coverage,
+    answer_labs,
+    answer_medication,
+    answer_member_summary,
+    answer_risk,
+)
+from app.compat import assert_never
 from app.guardrails import (
     REFUSE_NO_CITATION,
     REFUSE_NO_WAREHOUSE,
@@ -41,6 +50,8 @@ def assemble_answer(
     section_rows: Sequence[Mapping[str, object]] = (),
     allergy_rows: Sequence[Mapping[str, object]] = (),
     risk_rows: Sequence[Mapping[str, object]] = (),
+    evidence_rows: Sequence[Mapping[str, object]] = (),
+    related_rows: Sequence[Mapping[str, object]] = (),
     warehouse_connected: bool = True,
     query_failed: bool = False,
 ) -> Answer:
@@ -84,6 +95,28 @@ def assemble_answer(
             )
         sections = _for_patient(section_rows, patient_id)
         return answer_allergy(allergies, sections)
+    evidence = _for_patient(evidence_rows, patient_id)
+    sections = _for_patient(section_rows, patient_id)
+    if intent is Intent.MEMBER_SUMMARY:
+        return answer_member_summary(evidence, _for_patient(related_rows, patient_id))
+    if intent is Intent.CONDITION_LIST:
+        return answer_clinical_list(intent, "CONDITION", "Condition evidence", evidence, sections)
+    if intent is Intent.MEDICATION_LIST:
+        return answer_clinical_list(intent, "MEDICATION", "Medication evidence", evidence, sections)
+    if intent is Intent.CARE_PLAN_LIST:
+        return answer_clinical_list(intent, "CAREPLAN", "Care-plan evidence", evidence, sections)
+    if intent is Intent.LAB_RESULTS:
+        return answer_labs(evidence)
+    if intent is Intent.PROCEDURE_LIST:
+        return answer_clinical_list(intent, "PROCEDURE", "Procedure evidence", evidence, sections)
+    if intent is Intent.IMMUNIZATION_LIST:
+        return answer_clinical_list(
+            intent, "IMMUNIZATION", "Immunization evidence", evidence, sections
+        )
+    if intent is Intent.CLAIM_ENCOUNTER:
+        return answer_claims(evidence)
+    if intent is Intent.COVERAGE_LIST:
+        return answer_coverage(evidence)
     assert_never(intent)
 
 

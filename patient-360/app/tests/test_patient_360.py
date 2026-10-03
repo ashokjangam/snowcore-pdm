@@ -5,7 +5,17 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from app.answers import answer_allergy, answer_medication, answer_risk, format_rate
+from app.answers import (
+    answer_allergy,
+    answer_claims,
+    answer_clinical_list,
+    answer_coverage,
+    answer_labs,
+    answer_medication,
+    answer_member_summary,
+    answer_risk,
+    format_rate,
+)
 from app.assemble import assemble_answer, resolve_patient_id
 from app.banner import BANNER, LEAD, OUTCOMES, POINT_RULES, TRACK_NOTE
 from app.citations import format_citation, validate_citation
@@ -28,11 +38,20 @@ from app.queries import (
 )
 from app.questions import (
     ALLERGY_QUESTION,
+    CARE_PLAN_QUESTION,
+    CLAIM_QUESTION,
+    CONDITION_QUESTION,
+    COVERAGE_QUESTION,
     DISCHARGE_QUESTION,
     DOSE_QUESTION,
     EXTERNAL_CLAIMS_QUESTION,
+    IMMUNIZATION_QUESTION,
+    LAB_QUESTION,
     MEDICATION_QUESTION,
+    MEDICATION_LIST_QUESTION,
+    MEMBER_SUMMARY_QUESTION,
     OPENFDA_QUESTION,
+    PROCEDURE_QUESTION,
     RISK_QUESTION,
     TREATMENT_QUESTION,
 )
@@ -82,7 +101,23 @@ class IntentTests(unittest.TestCase):
 
     def test_empty_and_unscoped_questions_have_no_citation_path(self) -> None:
         self.assertIs(classify_intent("   "), Intent.NO_CITATION)
-        self.assertIs(classify_intent("Show the care plans"), Intent.NO_CITATION)
+        self.assertIs(classify_intent("Tell me something"), Intent.NO_CITATION)
+
+    def test_broad_clinical_questions_have_citation_paths(self) -> None:
+        expected = {
+            MEMBER_SUMMARY_QUESTION: Intent.MEMBER_SUMMARY,
+            CONDITION_QUESTION: Intent.CONDITION_LIST,
+            MEDICATION_LIST_QUESTION: Intent.MEDICATION_LIST,
+            CARE_PLAN_QUESTION: Intent.CARE_PLAN_LIST,
+            LAB_QUESTION: Intent.LAB_RESULTS,
+            PROCEDURE_QUESTION: Intent.PROCEDURE_LIST,
+            IMMUNIZATION_QUESTION: Intent.IMMUNIZATION_LIST,
+            CLAIM_QUESTION: Intent.CLAIM_ENCOUNTER,
+            COVERAGE_QUESTION: Intent.COVERAGE_LIST,
+        }
+        for question, intent in expected.items():
+            with self.subTest(question=question):
+                self.assertIs(classify_intent(question), intent)
 
     def test_name_and_day_parsers(self) -> None:
         self.assertEqual(synthea_name(MEDICATION_QUESTION), ("Alexandra16", "Mosciski958"))
@@ -338,6 +373,98 @@ class AnswerTests(unittest.TestCase):
         self.assertIs(answer_risk(drifted).status, AnswerStatus.REFUSED)
         with self.assertRaises(ValueError):
             format_rate("14.43")
+
+
+class ExpandedAnswerTests(unittest.TestCase):
+    patient_id = "patient-test"
+    encounter_id = "encounter-test"
+
+    def test_member_summary_cites_patient_and_encounter(self) -> None:
+        answer = answer_member_summary(
+            [
+                {
+                    "PATIENT_ID": self.patient_id,
+                    "FIRST_NAME": "Test1",
+                    "LAST_NAME": "Member1",
+                    "GENDER": "F",
+                    "BIRTHDATE": "1980-01-01",
+                    "CITY": "Boston",
+                    "STATE": "MA",
+                }
+            ],
+            [
+                {
+                    "PATIENT_ID": self.patient_id,
+                    "ENCOUNTER_ID": self.encounter_id,
+                    "START": "2022-01-01",
+                    "ENCOUNTER_CLASS": "ambulatory",
+                    "DESCRIPTION": "Encounter",
+                }
+            ],
+        )
+        self.assertIs(answer.status, AnswerStatus.CITED)
+        self.assertEqual(len(answer.citations), 2)
+
+    def test_clinical_lists_and_labs_cite_every_displayed_row(self) -> None:
+        clinical = {
+            "PATIENT_ID": self.patient_id,
+            "ENCOUNTER_ID": self.encounter_id,
+            "START": "2020-01-01",
+            "CODE": "123456",
+            "DESCRIPTION": "Recorded finding",
+        }
+        answer = answer_clinical_list(
+            Intent.CARE_PLAN_LIST, "CAREPLAN", "Care-plan evidence", [clinical]
+        )
+        self.assertIs(answer.status, AnswerStatus.CITED)
+        lab = answer_labs(
+            [
+                {
+                    "PATIENT_ID": self.patient_id,
+                    "ROW_ID": "7",
+                    "OBSERVED_AT": "2022-01-01",
+                    "CODE": "4548-4",
+                    "DESCRIPTION": "Hemoglobin A1c",
+                    "VALUE": "6.1",
+                    "UNITS": "%",
+                }
+            ]
+        )
+        self.assertIs(lab.status, AnswerStatus.CITED)
+        self.assertIn("4548-4", lab.text)
+
+    def test_claim_and_coverage_have_domain_specific_citations(self) -> None:
+        claim = answer_claims(
+            [
+                {
+                    "PATIENT_ID": self.patient_id,
+                    "CLAIM_ID": "claim-1",
+                    "ENCOUNTER_ID": self.encounter_id,
+                    "SERVICE_DATE": "2022-01-01",
+                    "ENCOUNTER_CLASS": "ambulatory",
+                }
+            ]
+        )
+        coverage = answer_coverage(
+            [
+                {
+                    "PATIENT_ID": self.patient_id,
+                    "PAYER_ID": "payer-1",
+                    "PAYER_NAME": "Synthetic payer",
+                    "START": "2020-01-01",
+                    "END": "2021-01-01",
+                    "MEMBER_ID": None,
+                }
+            ]
+        )
+        self.assertIs(claim.status, AnswerStatus.CITED)
+        self.assertIs(coverage.status, AnswerStatus.CITED)
+        self.assertIn("blank in source", coverage.text)
+
+    def test_expanded_answers_refuse_empty_rows(self) -> None:
+        self.assertIs(answer_labs(()).status, AnswerStatus.REFUSED)
+        self.assertIs(answer_claims(()).status, AnswerStatus.REFUSED)
+        self.assertIs(answer_coverage(()).status, AnswerStatus.REFUSED)
 
 
 class NarrationTests(unittest.TestCase):

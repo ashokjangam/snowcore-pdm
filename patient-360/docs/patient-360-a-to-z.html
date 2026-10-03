@@ -131,7 +131,7 @@ It joins 108 simulated Synthea patients across their encounters, claims and thei
 
 <section id="problem">
 <h2>2 · The problem we answer</h2>
-<p>Problem 04, Patient / Member 360, asks for a unified member view across clinical and claims data that answers questions with evidence. It accepts a cited answer, evidence retrieval, or risk stratification, all on synthetic data. We deliver all three, and we are explicit about how strong each one is:</p>
+<p>Problem 04, Patient / Member 360 and Clinical or Regulatory Document Copilot, asks for a unified member view across structured records and documents with cited evidence. The statement permits clinical <b>or</b> regulatory documents; this implementation deliberately chooses the clinical C-CDA path. The primary outcome is broad cited evidence retrieval. The point count is a secondary descriptive audit:</p>
 <div class="grid g3">
 <div class="card"><h3>Cited answer</h3><p>Natural-language questions answered only from rows the SQL step returned, with the citation tuple on screen.</p><span class="badge b-obs">BUILT</span></div>
 <div class="card"><h3>Evidence retrieval</h3><p>The rows behind each answer are one click away: the C-CDA cell, the CSV row and the claim on the same encounter.</p><span class="badge b-obs">BUILT</span></div>
@@ -256,17 +256,17 @@ It joins 108 simulated Synthea patients across their encounters, claims and thei
 <h2>10 · The judge-facing app</h2>
 <div class="grid g2">
 <div class="card"><h3>Top of the page: the population</h3><ul>
-<li>One lead line: "This is a synthetic chart. Every answer cites a warehouse row, or the page refuses."</li>
-<li>Three outcome cards: medication citation, allergy-code guard, honest point count.</li>
+<li>One lead line: "Clinical document copilot: unified synthetic chart, claims, coverage, and C-CDA evidence."</li>
+<li>Three outcome cards: clinical evidence retrieval, member-and-claims 360, guarded answers.</li>
 <li>Four population metrics: 108 members, 5,571 encounters, 9,421 claims on an encounter, 108 documents matched.</li>
-<li>The risk bucket chart with the four point rules in an expander.</li>
 </ul></div>
 <div class="card"><h3>Below: this member</h3><ul>
 <li>Member selector (defaults to the worked patient), profile and six chart counts.</li>
 <li>A one-line join: patient → encounter → claim → document.</li>
-<li>Prefilled cited answers (medication, allergy, risk) and a refusal (dose).</li>
+<li>Prefilled cited answers for member/encounters, conditions, care plans, labs, claims, medication and allergy evidence.</li>
 <li>Each answer shows citation chips and a "Rows behind this answer" expander.</li>
-<li>Source tables folded away; a free-text question box at the bottom.</li>
+<li>Example prompts also cover medication lists, procedures, immunizations and coverage spans.</li>
+<li>The non-monotonic point count is below the clinical workflow as a secondary descriptive cohort audit.</li>
 </ul></div>
 </div>
 <div class="plain"><b class="t">Design rule.</b> A judge who never opens an expander still sees the outcome, the evidence chips and a refusal. Raw tables are there to verify, not to read first.</div>
@@ -339,16 +339,13 @@ It joins 108 simulated Synthea patients across their encounters, claims and thei
 <section id="runbook">
 <h2>16 · Runbook and file map</h2>
 <pre>cd patient-360
-snow sql -c patient360 -f sql/00_setup.sql          # database, warehouse, roles
-snow sql -c patient360 -f sql/10_raw_ddl.sql        # RAW tables
-snow sql -c patient360 -f sql/20_load.sql           # stage + COPY + C-CDA cells
-snow sql -c patient360 -f sql/30_core_views.sql     # CORE views, PII dropped
-snow sql -c patient360 -f sql/40_semantic_view.sql  # SEM_MEMBER
-snow sql -c patient360 -f sql/90_roles_grants.sql   # analyst / loader / admin grants
-snow sql -c patient360 -f tests/expected_checks.sql # FAILED_GATE_COUNT = 0
+python scripts/bootstrap_synthea.py                  # pinned archives + C-CDA parser
+powershell -File scripts/Invoke-Patient360Load.ps1 -Load # full load + checks
 snow streamlit deploy --replace -c patient360       # PATIENT_360_APP
 snow sql -c patient360 -f sql/95_app_grants.sql     # app usage for analyst
-python -m pytest app/tests -q                       # 30 tests</pre>
+python -m unittest discover -s app/tests -t . -v    # 35 tests
+python -m unittest scripts.test_parse_ccda -v       # 6 parser tests
+snow sql -c patient360 -f tests/expanded_questions.sql # analyst smoke checks</pre>
 <table><thead><tr><th>Path</th><th>What it is</th></tr></thead><tbody>
 <tr><td><code>sql/</code></td><td>Setup, RAW DDL, load, CORE views, semantic view, grants</td></tr>
 <tr><td><code>app/queries.py</code></td><td>Read-only, aliased queries and SQL safety checks</td></tr>

@@ -8,8 +8,8 @@ retrieved citation.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import assert_never
 
 import streamlit as st
 
@@ -31,7 +31,7 @@ try:
     from app.banner import BANNER, LEAD, OUTCOMES, POINT_RULES, TRACK_NOTE
     from app.citations import format_citation
     from app.constants import WORKED_PATIENT_ID
-    from app.models import Answer, AnswerStatus, CohortCitation, DocumentCitation, TableCitation
+    from app.models import Answer, AnswerStatus
     from app.narrate import (
         DEFAULT_AI_COMPLETE_MODEL,
         NARRATION_SQL,
@@ -43,18 +43,34 @@ try:
         allergy_query,
         allergy_section_query,
         antihistamine_query,
+        care_plan_evidence_query,
         chart_queries,
+        claim_evidence_query,
+        condition_evidence_query,
+        coverage_evidence_query,
+        document_section_query,
+        immunization_evidence_query,
+        lab_evidence_query,
+        medication_evidence_query,
         medication_section_query,
+        member_summary_query,
         patient_list_query,
         patient_name_query,
         population_query,
+        procedure_evidence_query,
+        recent_encounter_query,
         risk_query,
     )
     from app.questions import (
         ALLERGY_QUESTION,
+        CARE_PLAN_QUESTION,
+        CLAIM_QUESTION,
+        CONDITION_QUESTION,
         DOSE_QUESTION,
         EXTRA_REFUSALS,
         FROZEN_QUESTIONS,
+        LAB_QUESTION,
+        MEMBER_SUMMARY_QUESTION,
         RISK_QUESTION,
     )
     from app.retrieve import retrieval_steps
@@ -79,6 +95,18 @@ class QueryFailure(Exception):
 
 _SELECTED_ANTIHISTAMINE = (
     "Which antihistamine is on the medication list, and where is it written?"
+)
+
+_PATIENT_EVIDENCE: tuple[tuple[str, Callable[[str], QuerySpec]], ...] = (
+    ("member_summary", member_summary_query),
+    ("condition_evidence", condition_evidence_query),
+    ("medication_evidence", medication_evidence_query),
+    ("care_plan_evidence", care_plan_evidence_query),
+    ("lab_evidence", lab_evidence_query),
+    ("procedure_evidence", procedure_evidence_query),
+    ("immunization_evidence", immunization_evidence_query),
+    ("claim_evidence", claim_evidence_query),
+    ("coverage_evidence", coverage_evidence_query),
 )
 
 _CHART_TITLES = {
@@ -115,11 +143,12 @@ def main() -> None:
         panels = load_chart(session, patient_id)
         member_counts(panels)
         join_line(panels.get("claim_on_encounter", []))
-        cited_answers(session, patient_id, risk_rows)
+        cited_answers(session, patient_id)
+        cohort_audit(risk_rows)
         source_rows(panels)
     elif session is not None:
         st.warning("The patient query returned no rows.")
-        cited_answers(session, None, risk_rows)
+        cited_answers(session, None)
     else:
         show_answer(assemble_answer(DOSE_QUESTION))
     question_box(session, None if selected is None else str(selected["patient_id"]))
@@ -196,8 +225,16 @@ def population(session: object | None) -> list[dict[str, str | None]]:
         risk_rows = fetch(session, risk_query())
     except QueryFailure as exc:
         show_query_error(exc)
+    return risk_rows
+
+
+def cohort_audit(risk_rows: list[dict[str, str | None]]) -> None:
+    st.header("Descriptive cohort audit")
+    st.caption(
+        "Secondary evidence only: a frozen point count, not a validated model, "
+        "probability, or care recommendation."
+    )
     if risk_rows:
-        st.caption("Point count, not a validated model.")
         scores: list[str] = []
         patients: list[int] = []
         for risk_row in risk_rows:
@@ -216,7 +253,10 @@ def population(session: object | None) -> list[dict[str, str | None]]:
                     column.metric(f"Score {score}", str(count))
         with st.expander("How the four points are defined"):
             st.write(POINT_RULES)
-    return risk_rows
+        show_answer(
+            assemble_answer(RISK_QUESTION, risk_rows=risk_rows, warehouse_connected=True),
+            risk_rows,
+        )
 
 
 def profile(patient: dict[str, str | None]) -> None:
@@ -289,27 +329,23 @@ def join_line(rows: list[dict[str, str | None]]) -> None:
     )
 
 
-def cited_answers(
-    session: object | None,
-    patient_id: str | None,
-    risk_rows: list[dict[str, str | None]],
-) -> None:
-    st.header("Cited answers")
-    st.caption("These three answers are filled for the member selected above. No click is required.")
-    medication, medication_rows, medication_failure = run_question(
-        session, _SELECTED_ANTIHISTAMINE, patient_id
+def cited_answers(session: object | None, patient_id: str | None) -> None:
+    st.header("Clinical document copilot")
+    st.caption(
+        "Problem 04 permits clinical or regulatory documents. This implementation "
+        "chooses the clinical path and joins structured rows to C-CDA evidence."
     )
-    allergy, allergy_rows, allergy_failure = run_question(session, ALLERGY_QUESTION, patient_id)
-    if risk_rows:
-        risk = assemble_answer(RISK_QUESTION, risk_rows=risk_rows, warehouse_connected=True)
-        risk_failure = None
-    else:
-        risk, _, risk_failure = run_question(session, RISK_QUESTION, patient_id)
-    for title, answer, rows, failure in (
-        ("Medication", medication, medication_rows, medication_failure),
-        ("Allergy", allergy, allergy_rows, allergy_failure),
-        ("Point count", risk, risk_rows, risk_failure),
-    ):
+    examples = (
+        ("Member and encounters", MEMBER_SUMMARY_QUESTION),
+        ("Conditions", CONDITION_QUESTION),
+        ("Care plans", CARE_PLAN_QUESTION),
+        ("Latest labs", LAB_QUESTION),
+        ("Claims on encounters", CLAIM_QUESTION),
+        ("Medication cross-check", _SELECTED_ANTIHISTAMINE),
+        ("Allergy-code guard", ALLERGY_QUESTION),
+    )
+    for title, question in examples:
+        answer, rows, failure = run_question(session, question, patient_id)
         st.subheader(title)
         if failure is not None:
             show_query_error(failure)
@@ -404,6 +440,8 @@ def run_question(
     section_rows: list[dict[str, str | None]] = []
     allergy_rows: list[dict[str, str | None]] = []
     risk_rows: list[dict[str, str | None]] = []
+    evidence_rows: list[dict[str, str | None]] = []
+    related_rows: list[dict[str, str | None]] = []
     try:
         if "patient_name" in steps:
             parsed = synthea_name(question)
@@ -425,6 +463,28 @@ def run_question(
                 section_rows = fetch(session, allergy_section_query(patient_id))
         if "risk" in steps:
             risk_rows = fetch(session, risk_query())
+        if patient_id:
+            for step, query in _PATIENT_EVIDENCE:
+                if step in steps:
+                    evidence_rows = fetch(session, query(patient_id))
+            if "recent_encounters" in steps:
+                related_rows = fetch(session, recent_encounter_query(patient_id))
+        section_loinc = next(
+            (
+                loinc
+                for step, loinc in (
+                    ("problem_section", "11450-4"),
+                    ("medication_full_section", "10160-0"),
+                    ("care_plan_section", "18776-5"),
+                    ("procedure_section", "47519-4"),
+                    ("immunization_section", "11369-6"),
+                )
+                if step in steps
+            ),
+            None,
+        )
+        if section_loinc and patient_id:
+            section_rows = fetch(session, document_section_query(patient_id, section_loinc))
     except QueryFailure as exc:
         answer = assemble_answer(
             question,
@@ -440,6 +500,8 @@ def run_question(
         section_rows=section_rows,
         allergy_rows=allergy_rows,
         risk_rows=risk_rows,
+        evidence_rows=evidence_rows,
+        related_rows=related_rows,
         warehouse_connected=True,
     )
     prompt_rows: list[dict[str, object]] = [
@@ -447,6 +509,8 @@ def run_question(
         *allergy_rows,
         *section_rows,
         *risk_rows,
+        *evidence_rows,
+        *related_rows,
     ]
     return answer, prompt_rows, None
 
@@ -482,26 +546,9 @@ def show_answer(answer: Answer, rows: list[dict[str, object]] | None = None) -> 
 
 
 def citation_chips(answer: Answer) -> None:
-    chips: list[str] = []
-    for citation in answer.citations:
-        if isinstance(citation, DocumentCitation):
-            chips.extend(
-                (
-                    f"document_id {citation.document_id}",
-                    f"section_loinc {citation.section_loinc}",
-                    f"element_id {citation.element_id}",
-                )
-            )
-        elif isinstance(citation, TableCitation):
-            chips.extend((f"table {citation.table}", f"code {citation.code}"))
-        elif isinstance(citation, CohortCitation):
-            chips.extend((f"table {citation.table}", f"score {citation.score}"))
-        else:
-            assert_never(citation)
+    chips = [format_citation(citation) for citation in answer.citations]
     if chips:
         st.caption(" · ".join(chips))
-    for citation in answer.citations:
-        st.caption(format_citation(citation))
 
 
 def show_table(rows: list[dict[str, object]]) -> None:

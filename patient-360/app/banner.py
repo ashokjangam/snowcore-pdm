@@ -1,21 +1,25 @@
 """Screen copy that stays on the page without querying a warehouse."""
 
 LEAD = (
-    "This is a synthetic chart. Every answer cites a warehouse row, or the page refuses."
+    "Clinical document copilot: unified synthetic chart, claims, coverage, and C-CDA evidence. "
+    "Every displayed answer cites its warehouse rows, or the page refuses."
 )
 
 OUTCOMES: tuple[tuple[str, str], ...] = (
     (
-        "Medication citation",
-        "A drug on the list is quoted from the chart row and from the clinical-document cell.",
+        "Clinical evidence retrieval",
+        "Conditions, medications, care plans, procedures, and immunizations link chart rows "
+        "to their C-CDA cells.",
     ),
     (
-        "Allergy-code guard",
-        "The page quotes the allergy-row code and does not substitute a second code from the same document.",
+        "Member and claims 360",
+        "Recent encounters, laboratory results, claims on encounters, and payer spans retain "
+        "their source keys.",
     ),
     (
-        "Honest point count",
-        "The 2023 cohort is a frozen point count. It is not a validated risk model.",
+        "Guarded answers",
+        "Allergy-code substitution, treatment advice, absent documents, and external sources "
+        "are refused instead of invented.",
     ),
 )
 
@@ -33,7 +37,8 @@ BANNER = (
 )
 
 TRACK_NOTE = (
-    "This page is a cited chart plus the frozen point count in CORE.RISK_SCORE. "
+    "Problem 04 allows clinical or regulatory documents; this implementation uses clinical "
+    "C-CDA documents. The descriptive cohort audit is secondary. "
     "The point count is not a validated stratifier, not a probability of deterioration, "
     "and not a care recommendation. Queried figures on this page are the figures to rehearse. "
     "A written expected count that disagrees with the query means the load is wrong."

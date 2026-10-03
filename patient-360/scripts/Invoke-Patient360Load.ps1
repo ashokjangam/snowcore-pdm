@@ -13,7 +13,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $patient360 = Split-Path $PSScriptRoot -Parent
-$repo = Split-Path $patient360 -Parent
 if (-not $ConfigPath) {
     $ConfigPath = Join-Path $patient360 'config\patient360.example.json'
 }
@@ -61,9 +60,10 @@ function Invoke-Native {
 }
 
 $parser = Join-Path $PSScriptRoot 'parse_ccda.py'
-$ccda = Join-Path $repo 'data\patient-360\ccda'
-$patients = Join-Path $repo 'data\patient-360\csv\patients.csv'
-$csvDir = Join-Path $repo 'data\patient-360\csv'
+$dataRoot = Join-Path $patient360 'data'
+$ccda = Join-Path $dataRoot 'ccda'
+$patients = Join-Path $dataRoot 'csv\patients.csv'
+$csvDir = Join-Path $dataRoot 'csv'
 $output = Join-Path $patient360 'generated'
 $python = Get-Python
 $expected = 108
@@ -155,40 +155,39 @@ function Expand-Sql {
     return $outFile
 }
 
-$ddl = Expand-Sql -RelativePath 'document_section.sql'
-$copy = Expand-Sql -RelativePath 'copy_document_section.sql'
-if ($createWarehouse) {
-    $warehouseSql = @"
-CREATE WAREHOUSE IF NOT EXISTS $warehouse
-  WAREHOUSE_SIZE = XSMALL
-  AUTO_SUSPEND = 60
-  AUTO_RESUME = TRUE
-  INITIALLY_SUSPENDED = TRUE
-  COMMENT = 'Patient 360 demo. XS is enough for the Synthea sample.';
-"@
-    $warehouseFile = Join-Path $output 'create_warehouse.sql'
-    $utf8 = New-Object System.Text.UTF8Encoding $false
-    [IO.File]::WriteAllText($warehouseFile, $warehouseSql, $utf8)
-}
-
-$snowCommon = @('--connection', $connection, '--warehouse', $warehouse, '--database', $database, '--schema', $schema)
+$snowCommon = @('--connection', $connection)
 if ($role) {
     $snowCommon += @('--role', $role)
 }
 
-if ($createWarehouse) {
-    Invoke-Native -File 'snow' -ArgumentList (@('sql', '--filename', $warehouseFile) + $snowCommon)
+function Get-FileUri {
+    param([string]$Path)
+    $resolved = (Resolve-Path -LiteralPath $Path).Path
+    return ([Uri]$resolved).AbsoluteUri.TrimEnd('/')
 }
-Invoke-Native -File 'snow' -ArgumentList (@('sql', '--filename', $ddl) + $snowCommon)
 
-$csvPath = Join-Path $output 'document_section.csv'
-if (-not (Test-Path -LiteralPath $csvPath)) {
-    throw "Missing parser CSV: $csvPath"
+$loadTemplate = Get-Content -LiteralPath (Join-Path $patient360 'sql\20_load.sql') -Raw -Encoding UTF8
+$loadSql = $loadTemplate.Replace('__DATA_ROOT_URI__', (Get-FileUri -Path $dataRoot))
+$loadSql = $loadSql.Replace('__GENERATED_URI__', (Get-FileUri -Path $output))
+if ($loadSql -match '__[A-Z_]+__') {
+    throw 'Unresolved token in sql\20_load.sql'
 }
-$destination = "@$database.$schema.$stage/document_section"
-Invoke-Native -File 'snow' -ArgumentList (@(
-        'stage', 'copy', $csvPath, $destination,
-        '--overwrite', '--no-auto-compress'
-    ) + $snowCommon)
-Invoke-Native -File 'snow' -ArgumentList (@('sql', '--filename', $copy) + $snowCommon)
-Write-Output "Loaded $database.$schema.$table from $csvPath"
+$loadFile = Join-Path $output '20_load.generated.sql'
+$utf8 = New-Object System.Text.UTF8Encoding $false
+[IO.File]::WriteAllText($loadFile, $loadSql, $utf8)
+
+$pipeline = @(
+    (Join-Path $patient360 'sql\00_setup.sql'),
+    (Join-Path $patient360 'sql\10_raw_ddl.sql'),
+    $loadFile,
+    (Join-Path $patient360 'sql\30_core_views.sql'),
+    (Join-Path $patient360 'sql\40_semantic_view.sql'),
+    (Join-Path $patient360 'sql\90_roles_grants.sql'),
+    (Join-Path $patient360 'tests\expected_checks.sql'),
+    (Join-Path $patient360 'tests\demo_questions.sql')
+)
+foreach ($sqlFile in $pipeline) {
+    Write-Output "Running $sqlFile"
+    Invoke-Native -File 'snow' -ArgumentList (@('sql', '--filename', $sqlFile) + $snowCommon)
+}
+Write-Output "Patient 360 load and validation completed. Generated SQL: $loadFile"

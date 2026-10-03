@@ -10,8 +10,17 @@ from typing import Union
 class Intent(Enum):
     """Question classes the page can answer or refuse."""
 
+    MEMBER_SUMMARY = "member_summary"
+    CONDITION_LIST = "condition_list"
     MEDICATION_CITATION = "medication_citation"
+    MEDICATION_LIST = "medication_list"
     ALLERGY_CITATION = "allergy_citation"
+    CARE_PLAN_LIST = "care_plan_list"
+    LAB_RESULTS = "lab_results"
+    PROCEDURE_LIST = "procedure_list"
+    IMMUNIZATION_LIST = "immunization_list"
+    CLAIM_ENCOUNTER = "claim_encounter"
+    COVERAGE_LIST = "coverage_list"
     RISK_COHORT = "risk_cohort"
     REFUSE_MEDICATION_CHANGE = "refuse_medication_change"
     REFUSE_DISCHARGE = "refuse_discharge"
@@ -66,7 +75,82 @@ class CohortCitation:
         return (self.table, self.index_date, self.horizon_end, self.score)
 
 
-Citation = Union[DocumentCitation, TableCitation, CohortCitation]
+@dataclass(frozen=True, slots=True)
+class PatientCitation:
+    """A patient row without exposing a clinical or financial identifier."""
+
+    table: str
+    patient_id: str
+
+    def as_tuple(self) -> tuple[str, str]:
+        return (self.table, self.patient_id)
+
+
+@dataclass(frozen=True, slots=True)
+class EncounterCitation:
+    """An encounter row tied to the selected patient."""
+
+    table: str
+    patient_id: str
+    encounter_id: str
+    start: str
+
+    def as_tuple(self) -> tuple[str, str, str, str]:
+        return (self.table, self.patient_id, self.encounter_id, self.start)
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationCitation:
+    """An observation can legitimately have no encounter in Synthea."""
+
+    table: str
+    patient_id: str
+    row_id: str
+    code: str
+    observed_at: str
+
+    def as_tuple(self) -> tuple[str, str, str, str, str]:
+        return (self.table, self.patient_id, self.row_id, self.code, self.observed_at)
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimCitation:
+    """Claim key plus the encounter carried by APPOINTMENT_ID."""
+
+    table: str
+    patient_id: str
+    claim_id: str
+    encounter_id: str
+    service_date: str
+
+    def as_tuple(self) -> tuple[str, str, str, str, str]:
+        return (self.table, self.patient_id, self.claim_id, self.encounter_id, self.service_date)
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageCitation:
+    """Coverage span citation; MEMBER_ID is deliberately not required."""
+
+    table: str
+    patient_id: str
+    payer_id: str
+    start: str
+    end: str
+
+    def as_tuple(self) -> tuple[str, str, str, str, str]:
+        return (self.table, self.patient_id, self.payer_id, self.start, self.end)
+
+
+Citation = Union[
+    DocumentCitation,
+    TableCitation,
+    CohortCitation,
+    PatientCitation,
+    EncounterCitation,
+    ObservationCitation,
+    ClaimCitation,
+    CoverageCitation,
+]
 
 
 @dataclass(frozen=True, slots=True)

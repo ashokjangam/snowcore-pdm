@@ -1,11 +1,8 @@
 ﻿-- Load local Synthea CSVs and the parsed C-CDA section CSV.
 -- Snowflake CLI executes PUT. The warehouse executes DELETE and COPY.
--- Invoke from any directory:
---   snow sql -f patient-360/sql/20_load.sql --connection <connection>
---
--- Paths below use the placeholder /path/to/hackathon-root/.
--- Replace that prefix with your local clone parent before running PUT
--- (the folder that contains data/patient-360/ and this patient-360/ tree).
+-- __DATA_ROOT_URI__ and __GENERATED_URI__ are expanded by
+-- scripts/Invoke-Patient360Load.ps1 into local file URIs.
+-- Do not run this template directly while those tokens remain.
 -- Re-run is safe: REMOVE, PUT OVERWRITE, DELETE, COPY FORCE = TRUE.
 -- DELETE is used instead of TRUNCATE so PATIENT_360_LOADER can reload without ownership.
 -- Each table is one transaction. A failed COPY rolls back that table's DELETE.
@@ -31,7 +28,7 @@ SET PATIENT_360_LOAD_BATCH_ID = (
 
 -- patients.csv -> RAW.PATIENTS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/patients;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/patients.csv' @PATIENT_360.RAW.STG_CSV/csv/patients AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/patients.csv' @PATIENT_360.RAW.STG_CSV/csv/patients AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.PATIENTS;
@@ -113,7 +110,7 @@ COMMIT;
 
 -- encounters.csv -> RAW.ENCOUNTERS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/encounters;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/encounters.csv' @PATIENT_360.RAW.STG_CSV/csv/encounters AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/encounters.csv' @PATIENT_360.RAW.STG_CSV/csv/encounters AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.ENCOUNTERS;
@@ -169,7 +166,7 @@ COMMIT;
 
 -- conditions.csv -> RAW.CONDITIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/conditions;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/conditions.csv' @PATIENT_360.RAW.STG_CSV/csv/conditions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/conditions.csv' @PATIENT_360.RAW.STG_CSV/csv/conditions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.CONDITIONS;
@@ -209,7 +206,7 @@ COMMIT;
 
 -- medications.csv -> RAW.MEDICATIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/medications;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/medications.csv' @PATIENT_360.RAW.STG_CSV/csv/medications AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/medications.csv' @PATIENT_360.RAW.STG_CSV/csv/medications AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.MEDICATIONS;
@@ -261,7 +258,7 @@ COMMIT;
 
 -- observations.csv -> RAW.OBSERVATIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/observations;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/observations.csv' @PATIENT_360.RAW.STG_CSV/csv/observations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/observations.csv' @PATIENT_360.RAW.STG_CSV/csv/observations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.OBSERVATIONS;
@@ -305,7 +302,7 @@ COMMIT;
 
 -- procedures.csv -> RAW.PROCEDURES
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/procedures;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/procedures.csv' @PATIENT_360.RAW.STG_CSV/csv/procedures AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/procedures.csv' @PATIENT_360.RAW.STG_CSV/csv/procedures AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.PROCEDURES;
@@ -351,7 +348,7 @@ COMMIT;
 
 -- allergies.csv -> RAW.ALLERGIES
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/allergies;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/allergies.csv' @PATIENT_360.RAW.STG_CSV/csv/allergies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/allergies.csv' @PATIENT_360.RAW.STG_CSV/csv/allergies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.ALLERGIES;
@@ -407,7 +404,7 @@ COMMIT;
 
 -- careplans.csv -> RAW.CAREPLANS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/careplans;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/careplans.csv' @PATIENT_360.RAW.STG_CSV/csv/careplans AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/careplans.csv' @PATIENT_360.RAW.STG_CSV/csv/careplans AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.CAREPLANS;
@@ -451,7 +448,7 @@ COMMIT;
 
 -- immunizations.csv -> RAW.IMMUNIZATIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/immunizations;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/immunizations.csv' @PATIENT_360.RAW.STG_CSV/csv/immunizations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/immunizations.csv' @PATIENT_360.RAW.STG_CSV/csv/immunizations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.IMMUNIZATIONS;
@@ -489,7 +486,7 @@ COMMIT;
 
 -- imaging_studies.csv -> RAW.IMAGING_STUDIES
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/imaging_studies;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/imaging_studies.csv' @PATIENT_360.RAW.STG_CSV/csv/imaging_studies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/imaging_studies.csv' @PATIENT_360.RAW.STG_CSV/csv/imaging_studies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.IMAGING_STUDIES;
@@ -541,7 +538,7 @@ COMMIT;
 
 -- devices.csv -> RAW.DEVICES
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/devices;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/devices.csv' @PATIENT_360.RAW.STG_CSV/csv/devices AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/devices.csv' @PATIENT_360.RAW.STG_CSV/csv/devices AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.DEVICES;
@@ -581,7 +578,7 @@ COMMIT;
 
 -- supplies.csv -> RAW.SUPPLIES
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/supplies;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/supplies.csv' @PATIENT_360.RAW.STG_CSV/csv/supplies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/supplies.csv' @PATIENT_360.RAW.STG_CSV/csv/supplies AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.SUPPLIES;
@@ -619,7 +616,7 @@ COMMIT;
 
 -- payer_transitions.csv -> RAW.PAYER_TRANSITIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/payer_transitions;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/payer_transitions.csv' @PATIENT_360.RAW.STG_CSV/csv/payer_transitions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/payer_transitions.csv' @PATIENT_360.RAW.STG_CSV/csv/payer_transitions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.PAYER_TRANSITIONS;
@@ -661,7 +658,7 @@ COMMIT;
 
 -- payers.csv -> RAW.PAYERS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/payers;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/payers.csv' @PATIENT_360.RAW.STG_CSV/csv/payers AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/payers.csv' @PATIENT_360.RAW.STG_CSV/csv/payers AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.PAYERS;
@@ -731,7 +728,7 @@ COMMIT;
 
 -- organizations.csv -> RAW.ORGANIZATIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/organizations;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/organizations.csv' @PATIENT_360.RAW.STG_CSV/csv/organizations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/organizations.csv' @PATIENT_360.RAW.STG_CSV/csv/organizations AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.ORGANIZATIONS;
@@ -781,7 +778,7 @@ COMMIT;
 
 -- providers.csv -> RAW.PROVIDERS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/providers;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/providers.csv' @PATIENT_360.RAW.STG_CSV/csv/providers AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/providers.csv' @PATIENT_360.RAW.STG_CSV/csv/providers AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.PROVIDERS;
@@ -835,7 +832,7 @@ COMMIT;
 
 -- claims.csv -> RAW.CLAIMS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/claims;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/claims.csv' @PATIENT_360.RAW.STG_CSV/csv/claims AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/claims.csv' @PATIENT_360.RAW.STG_CSV/csv/claims AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.CLAIMS;
@@ -923,7 +920,7 @@ COMMIT;
 
 -- claims_transactions.csv -> RAW.CLAIMS_TRANSACTIONS
 REMOVE @PATIENT_360.RAW.STG_CSV/csv/claims_transactions;
-PUT 'file:///path/to/hackathon-root/data/patient-360/csv/claims_transactions.csv' @PATIENT_360.RAW.STG_CSV/csv/claims_transactions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__DATA_ROOT_URI__/csv/claims_transactions.csv' @PATIENT_360.RAW.STG_CSV/csv/claims_transactions AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.CLAIMS_TRANSACTIONS;
@@ -1016,7 +1013,7 @@ COMMIT;
 -- Parsed C-CDA section CSV. Stop here if that file has not been written yet.
 -- The 18 CSV loads above are already committed.
 REMOVE @PATIENT_360.RAW.STG_CSV/parsed/document_section;
-PUT 'file:///path/to/hackathon-root/patient-360/generated/document_section.csv' @PATIENT_360.RAW.STG_CSV/parsed/document_section AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
+PUT '__GENERATED_URI__/document_section.csv' @PATIENT_360.RAW.STG_CSV/parsed/document_section AUTO_COMPRESS = TRUE OVERWRITE = TRUE;
 
 BEGIN;
 DELETE FROM PATIENT_360.RAW.DOCUMENT_SECTION;

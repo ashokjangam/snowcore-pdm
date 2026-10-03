@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import re
-from typing import assert_never
 
-from app.models import Citation, CohortCitation, DocumentCitation, TableCitation
+from app.compat import assert_never
+from app.models import (
+    Citation,
+    ClaimCitation,
+    CohortCitation,
+    CoverageCitation,
+    DocumentCitation,
+    EncounterCitation,
+    ObservationCitation,
+    PatientCitation,
+    TableCitation,
+)
 
 _CODE_RUN = re.compile(r"\d{6,18}")
 _RISK_TABLE = "RISK_SCORE"
@@ -47,23 +57,62 @@ def conflicting_codes(csv_code: str, candidates: tuple[str | None, ...]) -> tupl
 def format_citation(citation: Citation) -> str:
     """Render one citation as the tuple the page and the narrator must keep."""
     if isinstance(citation, DocumentCitation):
-        return (
-            f"(document_id={citation.document_id}, "
-            f"section_loinc={citation.section_loinc}, "
-            f"element_id={citation.element_id})"
+        fields = (
+            ("document_id", citation.document_id),
+            ("section_loinc", citation.section_loinc),
+            ("element_id", citation.element_id),
         )
-    if isinstance(citation, TableCitation):
-        return (
-            f"(table={citation.table}, patient_id={citation.patient_id}, "
-            f"encounter_id={citation.encounter_id}, code={citation.code}, "
-            f"start={citation.start})"
+    elif isinstance(citation, TableCitation):
+        fields = (
+            ("table", citation.table),
+            ("patient_id", citation.patient_id),
+            ("encounter_id", citation.encounter_id),
+            ("code", citation.code),
+            ("start", citation.start),
         )
-    if isinstance(citation, CohortCitation):
-        return (
-            f"(table={citation.table}, index_date={citation.index_date}, "
-            f"horizon_end={citation.horizon_end}, score={citation.score})"
+    elif isinstance(citation, CohortCitation):
+        fields = (
+            ("table", citation.table),
+            ("index_date", citation.index_date),
+            ("horizon_end", citation.horizon_end),
+            ("score", citation.score),
         )
-    assert_never(citation)
+    elif isinstance(citation, PatientCitation):
+        fields = (("table", citation.table), ("patient_id", citation.patient_id))
+    elif isinstance(citation, EncounterCitation):
+        fields = (
+            ("table", citation.table),
+            ("patient_id", citation.patient_id),
+            ("encounter_id", citation.encounter_id),
+            ("start", citation.start),
+        )
+    elif isinstance(citation, ObservationCitation):
+        fields = (
+            ("table", citation.table),
+            ("patient_id", citation.patient_id),
+            ("row_id", citation.row_id),
+            ("code", citation.code),
+            ("observed_at", citation.observed_at),
+        )
+    elif isinstance(citation, ClaimCitation):
+        fields = (
+            ("table", citation.table),
+            ("patient_id", citation.patient_id),
+            ("claim_id", citation.claim_id),
+            ("encounter_id", citation.encounter_id),
+            ("service_date", citation.service_date),
+        )
+    elif isinstance(citation, CoverageCitation):
+        fields = (
+            ("table", citation.table),
+            ("patient_id", citation.patient_id),
+            ("payer_id", citation.payer_id),
+            ("start", citation.start),
+            ("end", citation.end),
+        )
+    else:
+        assert_never(citation)
+    return _render(fields)
 
 
 def validate_citation(citation: Citation) -> tuple[str, ...]:
@@ -80,20 +129,16 @@ def validate_citation(citation: Citation) -> tuple[str, ...]:
     if isinstance(citation, TableCitation):
         if citation.table == _RISK_TABLE:
             return ("RISK_SCORE uses a cohort citation",)
-        missing = [
-            name
-            for name, value in (
+        return _missing(
+            "table",
+            (
                 ("table", citation.table),
                 ("patient_id", citation.patient_id),
                 ("encounter_id", citation.encounter_id),
                 ("code", citation.code),
                 ("start", citation.start),
-            )
-            if not value.strip()
-        ]
-        if missing:
-            return (f"table citation missing {', '.join(missing)}",)
-        return ()
+            ),
+        )
     if isinstance(citation, CohortCitation):
         missing = [
             name
@@ -110,7 +155,63 @@ def validate_citation(citation: Citation) -> tuple[str, ...]:
         if missing:
             return (f"cohort citation missing {', '.join(missing)}",)
         return ()
+    if isinstance(citation, PatientCitation):
+        return _missing("patient", (("table", citation.table), ("patient_id", citation.patient_id)))
+    if isinstance(citation, EncounterCitation):
+        return _missing(
+            "encounter",
+            (
+                ("table", citation.table),
+                ("patient_id", citation.patient_id),
+                ("encounter_id", citation.encounter_id),
+                ("start", citation.start),
+            ),
+        )
+    if isinstance(citation, ObservationCitation):
+        return _missing(
+            "observation",
+            (
+                ("table", citation.table),
+                ("patient_id", citation.patient_id),
+                ("row_id", citation.row_id),
+                ("code", citation.code),
+                ("observed_at", citation.observed_at),
+            ),
+        )
+    if isinstance(citation, ClaimCitation):
+        return _missing(
+            "claim",
+            (
+                ("table", citation.table),
+                ("patient_id", citation.patient_id),
+                ("claim_id", citation.claim_id),
+                ("encounter_id", citation.encounter_id),
+                ("service_date", citation.service_date),
+            ),
+        )
+    if isinstance(citation, CoverageCitation):
+        return _missing(
+            "coverage",
+            (
+                ("table", citation.table),
+                ("patient_id", citation.patient_id),
+                ("payer_id", citation.payer_id),
+                ("start", citation.start),
+                ("end", citation.end),
+            ),
+        )
     assert_never(citation)
+
+
+def _render(fields: tuple[tuple[str, str], ...]) -> str:
+    return "(" + ", ".join(f"{name}={value}" for name, value in fields) + ")"
+
+
+def _missing(kind: str, fields: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
+    names = [name for name, value in fields if not value.strip()]
+    if not names:
+        return ()
+    return (f"{kind} citation missing {', '.join(names)}",)
 
 
 def rejected_code_is_guarded(text: str, quoted_code: str, rejected_code: str) -> bool:

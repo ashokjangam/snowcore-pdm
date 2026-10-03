@@ -7,7 +7,7 @@ You are recording the Patient 360 plan for a Streamlit-in-Snowflake demo. Read `
 Write a short plan that includes only the following:
 
 1. Database `PATIENT_360`, warehouse size XS. One Streamlit page. No second app.
-2. `RAW`: the 18 CSV tables already extracted under `data/patient-360/csv/`, plus `DOCUMENT_SECTION` (`document_id`, `patient_id`, `section_loinc`, `section_title`, `element_id`, `text`, `code`). `document_id` equals `patient_id`.
+2. `RAW`: the 18 CSV tables already extracted under `data/csv/`, plus `DOCUMENT_SECTION` parsed from `data/ccda/` (`document_id`, `patient_id`, `section_loinc`, `section_title`, `element_id`, `text`, `code`). `document_id` equals `patient_id`.
 3. `CORE` views named in `patient-360/README.md`. They omit `SSN`, `DRIVERS`, and `PASSPORT`. `RISK_SCORE` uses CSV facts before 2023-01-01 and does not include C-CDA text. The four points stay as already measured. Do not retune them.
 4. The page queries those `CORE` views with bound SQL. It does not query a maintenance semantic view (`PNEUMORA`, `SNOWCORE_REAL`, `TRIDENT_OPS`).
 5. Frozen questions and refusals listed in `patient-360/README.md`. An answer without a citation tuple is a refusal. `AI_COMPLETE` is optional, temperature 0, and limited to rows the SQL step returned.

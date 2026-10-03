@@ -11,34 +11,17 @@ USE WAREHOUSE PATIENT_360_WH;
 
 CREATE OR REPLACE VIEW PATIENT_360.CORE.PATIENT
 COPY GRANTS
-COMMENT = 'Simulated Synthea patient. SSN, DRIVERS, and PASSPORT are omitted. Not for care.'
+COMMENT = 'Minimum simulated member profile for the analyst app. Direct identifiers, precise address/geolocation, and financial fields are omitted. Not for care.'
 AS
 SELECT
     ID AS PATIENT_ID,
     BIRTHDATE,
     DEATHDATE,
-    PREFIX AS NAME_PREFIX,
     FIRST AS FIRST_NAME,
-    MIDDLE AS MIDDLE_NAME,
     LAST AS LAST_NAME,
-    SUFFIX AS NAME_SUFFIX,
-    MAIDEN AS MAIDEN_NAME,
-    MARITAL AS MARITAL_STATUS,
-    RACE,
-    ETHNICITY,
     GENDER,
-    BIRTHPLACE,
-    ADDRESS,
     CITY,
     STATE,
-    COUNTY,
-    FIPS,
-    ZIP,
-    LAT AS LATITUDE,
-    LON AS LONGITUDE,
-    HEALTHCARE_EXPENSES,
-    HEALTHCARE_COVERAGE,
-    INCOME,
     SOURCE_FILENAME,
     SOURCE_FILE_ROW_NUMBER,
     LOADED_AT,

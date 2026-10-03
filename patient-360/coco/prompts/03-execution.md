@@ -6,7 +6,7 @@ Create or confirm:
 
 - Database `PATIENT_360`.
 - An XS warehouse. Record its name. `PATIENT_360_WH` is the name the README uses.
-- Schema `RAW` loaded from `data/patient-360/csv/` (18 tables) and `DOCUMENT_SECTION` parsed from `data/patient-360/ccda/` (108 files). Do not download another Synthea archive, the FHIR zip, imaging pixels, or openFDA.
+- Schema `RAW` loaded from `data/csv/` (18 tables) and `DOCUMENT_SECTION` parsed from `data/ccda/` (108 files). Use the pinned bootstrap; do not download another Synthea archive, the FHIR zip, imaging pixels, or openFDA.
 - Schema `CORE` with the views in `patient-360/README.md`. Grant the demo role `SELECT` on `CORE` only. Do not grant `SSN`, `DRIVERS`, or `PASSPORT`.
 - One Streamlit app whose stage root contains `streamlit/patient_360.py` (as `patient_360.py`), `streamlit/environment.yml`, and the `app/` package.
 

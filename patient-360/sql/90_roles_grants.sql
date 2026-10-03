@@ -4,7 +4,8 @@
 -- No user is named here and no secret is stored.
 --
 -- PATIENT_360_ANALYST reads CORE views and the semantic view.
--- That role has no USAGE on RAW and no SELECT on RAW tables, so SSN, DRIVERS, and PASSPORT are not readable.
+-- It cannot enter RAW. CORE.PATIENT is also minimized: direct identifiers, street/ZIP,
+-- geolocation, and income/expense fields are not projected into the analyst profile.
 -- PATIENT_360_LOADER can reload RAW. It is not the demo role.
 -- PATIENT_360_ADMIN inherits both roles. SYSADMIN inherits admin. ACCOUNTADMIN is not modified.
 
@@ -18,7 +19,7 @@ CREATE ROLE IF NOT EXISTS PATIENT_360_LOADER
     COMMENT = 'Reloads RAW from the internal stage. Can read RAW, including the three restricted identifiers.';
 
 CREATE ROLE IF NOT EXISTS PATIENT_360_ANALYST
-    COMMENT = 'Demo reader. SELECT on CORE only. No SELECT on SSN, DRIVERS, or PASSPORT.';
+    COMMENT = 'Demo reader. CORE-only; no RAW identifiers, precise address/geolocation, or patient financial profile.';
 
 GRANT ROLE PATIENT_360_ANALYST TO ROLE PATIENT_360_ADMIN;
 GRANT ROLE PATIENT_360_LOADER TO ROLE PATIENT_360_ADMIN;

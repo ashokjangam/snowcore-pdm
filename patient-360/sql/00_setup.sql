@@ -2,7 +2,8 @@
 -- Idempotent. Re-running keeps the XS warehouse and does not store credentials.
 -- Run first, as ACCOUNTADMIN or another role that can create a database, warehouse, and schema:
 --   snow sql -f patient-360/sql/00_setup.sql --connection <connection>
--- Then: 10_raw_ddl.sql, 20_load.sql, 30_core_views.sql, 40_semantic_view.sql, 90_roles_grants.sql.
+-- For the complete load, use scripts/Invoke-Patient360Load.ps1; it expands the local
+-- file URI tokens in the 20_load.sql template before executing the remaining scripts.
 --
 -- One database, PATIENT_360. One XS warehouse. No external stage and no secrets.
 -- Source: MITRE Synthea paired CSV and C-CDA sample. Simulated patients, not for care.

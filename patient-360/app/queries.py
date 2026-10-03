@@ -332,6 +332,181 @@ WHERE PATIENT_ID = ?
     )
 
 
+def member_summary_query(patient_id: str) -> QuerySpec:
+    table = _qualified("PATIENT")
+    return QuerySpec(
+        name="member_summary",
+        sql=f"""
+SELECT PATIENT_ID, FIRST_NAME, LAST_NAME, GENDER, BIRTHDATE, DEATHDATE, CITY, STATE
+FROM {table}
+WHERE PATIENT_ID = ?
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def recent_encounter_query(patient_id: str) -> QuerySpec:
+    table = _qualified("ENCOUNTER")
+    return QuerySpec(
+        name="recent_encounters",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, START_TS AS "START", STOP_TS, ENCOUNTER_CLASS,
+       CODE, DESCRIPTION
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY START_TS DESC
+LIMIT 5
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def condition_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("CONDITION")
+    return QuerySpec(
+        name="condition_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, START_DATE AS "START", STOP_DATE,
+       CODE, DESCRIPTION
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY IFF(STOP_DATE IS NULL, 1, 0) DESC, START_DATE DESC
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def medication_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("MEDICATION")
+    return QuerySpec(
+        name="medication_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, START_TS AS "START", STOP_TS,
+       CODE, DESCRIPTION, DISPENSES
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY START_TS DESC, CODE
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def care_plan_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("CAREPLAN")
+    return QuerySpec(
+        name="care_plan_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, START_DATE AS "START", STOP_DATE,
+       CAREPLAN_ID, CODE, DESCRIPTION, REASON_CODE, REASON_DESCRIPTION
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY START_DATE DESC, CODE
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def lab_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("OBSERVATION")
+    return QuerySpec(
+        name="lab_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, SOURCE_FILE_ROW_NUMBER AS ROW_ID,
+       OBSERVATION_TS AS OBSERVED_AT, CODE, DESCRIPTION,
+       VALUE_TEXT AS "VALUE", UNITS
+FROM {table}
+WHERE PATIENT_ID = ? AND LOWER(CATEGORY) = 'laboratory'
+ORDER BY OBSERVATION_TS DESC, SOURCE_FILE_ROW_NUMBER DESC
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def procedure_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("PROCEDURE")
+    return QuerySpec(
+        name="procedure_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, START_TS AS "START", STOP_TS,
+       CODE, DESCRIPTION, REASON_CODE, REASON_DESCRIPTION
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY START_TS DESC, CODE
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def immunization_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("IMMUNIZATION")
+    return QuerySpec(
+        name="immunization_evidence",
+        sql=f"""
+SELECT PATIENT_ID, ENCOUNTER_ID, IMMUNIZATION_TS AS "START", CODE, DESCRIPTION
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY IMMUNIZATION_TS DESC, CODE
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def claim_evidence_query(patient_id: str) -> QuerySpec:
+    claim = _qualified("CLAIM")
+    encounter = _qualified("ENCOUNTER")
+    return QuerySpec(
+        name="claim_evidence",
+        sql=f"""
+SELECT c.PATIENT_ID, c.CLAIM_ID, c.APPOINTMENT_ID AS ENCOUNTER_ID,
+       c.SERVICE_TS AS SERVICE_DATE, c.DIAGNOSIS_1 AS DIAGNOSIS1,
+       e.ENCOUNTER_CLASS, e.DESCRIPTION AS ENCOUNTER_DESCRIPTION
+FROM {claim} AS c
+INNER JOIN {encounter} AS e
+    ON c.PATIENT_ID = e.PATIENT_ID AND c.APPOINTMENT_ID = e.ENCOUNTER_ID
+WHERE c.PATIENT_ID = ?
+ORDER BY c.SERVICE_TS DESC, c.CLAIM_ID
+LIMIT 5
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def coverage_evidence_query(patient_id: str) -> QuerySpec:
+    table = _qualified("MEMBER_COVERAGE")
+    return QuerySpec(
+        name="coverage_evidence",
+        sql=f"""
+SELECT PATIENT_ID, START_TS AS "START", END_TS AS "END",
+       MEMBER_ID, PAYER_ID, PAYER_NAME
+FROM {table}
+WHERE PATIENT_ID = ?
+ORDER BY START_TS DESC, PAYER_ID
+LIMIT 10
+""".strip(),
+        params=(patient_id,),
+    )
+
+
+def document_section_query(patient_id: str, section_loinc: str) -> QuerySpec:
+    table = _qualified("DOCUMENT_SECTION")
+    return QuerySpec(
+        name="document_section",
+        sql=f"""
+SELECT DOCUMENT_ID, PATIENT_ID, SECTION_LOINC, SECTION_TITLE, ELEMENT_ID, TEXT, CODE
+FROM {table}
+WHERE PATIENT_ID = ? AND SECTION_LOINC = ?
+ORDER BY ELEMENT_ID
+""".strip(),
+        params=(patient_id, section_loinc),
+    )
+
+
 def risk_query() -> QuerySpec:
     table = _qualified("RISK_SCORE")
     cohort = _qualified("RISK_COHORT")
@@ -426,6 +601,17 @@ def all_statement_sql() -> tuple[str, ...]:
         allergy_query(sample, None),
         allergy_query(sample, "2005-06-18"),
         allergy_section_query(sample),
+        member_summary_query(sample),
+        recent_encounter_query(sample),
+        condition_evidence_query(sample),
+        medication_evidence_query(sample),
+        care_plan_evidence_query(sample),
+        lab_evidence_query(sample),
+        procedure_evidence_query(sample),
+        immunization_evidence_query(sample),
+        claim_evidence_query(sample),
+        coverage_evidence_query(sample),
+        document_section_query(sample, "11450-4"),
         risk_query(),
         population_query(),
     ]

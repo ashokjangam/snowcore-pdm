@@ -16,9 +16,14 @@ from app.models import (
     Answer,
     AnswerStatus,
     Citation,
+    ClaimCitation,
     CohortCitation,
+    CoverageCitation,
     DocumentCitation,
+    EncounterCitation,
     Intent,
+    ObservationCitation,
+    PatientCitation,
     TableCitation,
 )
 from app.rows import normalize_row
@@ -26,6 +31,7 @@ from app.rows import normalize_row
 _MEDICATION_TABLE = "MEDICATION"
 _ALLERGY_TABLE = "ALLERGY"
 _RISK_TABLE = "RISK_SCORE"
+_MAX_LIST_ROWS = 5
 
 
 def answer_medication(
@@ -151,6 +157,173 @@ def answer_allergy(
         quoted_codes=(csv_code,),
         rejected_codes=rejected,
     )
+
+
+def answer_member_summary(
+    patient_rows: Sequence[Mapping[str, object]],
+    encounter_rows: Sequence[Mapping[str, object]],
+) -> Answer:
+    """Summarize the selected member and cite the patient plus recent encounters."""
+    patients = [normalize_row(row) for row in patient_rows]
+    if len(patients) != 1:
+        return refuse(
+            Intent.MEMBER_SUMMARY,
+            "Refused. A member summary requires exactly one patient row.",
+        )
+    patient = patients[0]
+    patient_id = patient.get("patient_id") or ""
+    citation = PatientCitation(table="PATIENT", patient_id=patient_id)
+    if not patient_id:
+        return refuse(Intent.MEMBER_SUMMARY, "Refused. The patient row has no patient id.")
+    name = " ".join(
+        value for value in (patient.get("first_name"), patient.get("last_name")) if value
+    )
+    lines = [
+        f"{name or 'Selected member'}: gender {patient.get('gender') or 'not recorded'}, "
+        f"birth {patient.get('birthdate') or 'not recorded'}, "
+        f"city/state {patient.get('city') or 'not recorded'}/{patient.get('state') or 'not recorded'}.",
+        format_citation(citation) + ".",
+    ]
+    citations: list[Citation] = [citation]
+    for raw in list(encounter_rows)[:_MAX_LIST_ROWS]:
+        row = normalize_row(raw)
+        encounter = EncounterCitation(
+            table="ENCOUNTER",
+            patient_id=row.get("patient_id") or "",
+            encounter_id=row.get("encounter_id") or "",
+            start=row.get("start") or "",
+        )
+        lines.append(
+            f"Encounter {row.get('encounter_class') or 'class not recorded'} on "
+            f"{row.get('start') or 'date not recorded'}: "
+            f"{row.get('description') or 'description not recorded'}. "
+            f"{format_citation(encounter)}."
+        )
+        citations.append(encounter)
+    lines.append("Synthetic Synthea record. Not for care.")
+    return _cited(Intent.MEMBER_SUMMARY, " ".join(lines), tuple(citations))
+
+
+def answer_clinical_list(
+    intent: Intent,
+    table: str,
+    label: str,
+    rows: Sequence[Mapping[str, object]],
+    section_rows: Sequence[Mapping[str, object]] = (),
+) -> Answer:
+    """Render a capped structured clinical list and attach matching C-CDA cells."""
+    normalized = [normalize_row(row) for row in rows]
+    if not normalized:
+        return refuse(intent, f"Refused. No {label.lower()} rows matched the selected member.")
+    lines = [f"{label}: showing {min(len(normalized), _MAX_LIST_ROWS)} retrieved rows."]
+    citations: list[Citation] = []
+    for row in normalized[:_MAX_LIST_ROWS]:
+        citation = _table_citation(table, row)
+        if citation is None:
+            return refuse(
+                intent,
+                f"Refused. A {table} row is missing patient, encounter, code, or start.",
+            )
+        lines.append(
+            f"{row.get('description') or 'description not recorded'}; "
+            f"code {row.get('code') or 'not recorded'}; "
+            f"start {row.get('start') or 'not recorded'}. {format_citation(citation)}."
+        )
+        citations.append(citation)
+        documents = _matching_documents(
+            section_rows, row.get("code") or "", row.get("patient_id")
+        )
+        for section, document in documents[:2]:
+            citations.append(document)
+            text = section.get("text")
+            evidence = f"C-CDA evidence: {text}" if text else "C-CDA evidence"
+            lines.append(f"{evidence}. {format_citation(document)}.")
+    if len(normalized) > _MAX_LIST_ROWS:
+        lines.append(f"{len(normalized) - _MAX_LIST_ROWS} additional rows were not displayed.")
+    lines.append("Synthetic Synthea record. Not for care.")
+    return _cited(intent, " ".join(lines), tuple(citations))
+
+
+def answer_labs(rows: Sequence[Mapping[str, object]]) -> Answer:
+    """Render recent laboratory observations, including rows without encounters."""
+    normalized = [normalize_row(row) for row in rows]
+    if not normalized:
+        return refuse(Intent.LAB_RESULTS, "Refused. No laboratory rows matched this member.")
+    lines = [f"Latest laboratory evidence: {min(len(normalized), _MAX_LIST_ROWS)} rows."]
+    citations: list[Citation] = []
+    for row in normalized[:_MAX_LIST_ROWS]:
+        citation = ObservationCitation(
+            table="OBSERVATION",
+            patient_id=row.get("patient_id") or "",
+            row_id=row.get("row_id") or "",
+            code=row.get("code") or "",
+            observed_at=row.get("observed_at") or "",
+        )
+        lines.append(
+            f"{row.get('description') or 'description not recorded'}: "
+            f"{row.get('value') or 'value not recorded'} {row.get('units') or ''} "
+            f"on {row.get('observed_at') or 'date not recorded'}. "
+            f"{format_citation(citation)}."
+        )
+        citations.append(citation)
+    lines.append("These are recorded observations, not treatment advice.")
+    return _cited(Intent.LAB_RESULTS, " ".join(lines), tuple(citations))
+
+
+def answer_claims(rows: Sequence[Mapping[str, object]]) -> Answer:
+    """Show claims whose appointment id joins to an encounter."""
+    normalized = [normalize_row(row) for row in rows]
+    if not normalized:
+        return refuse(
+            Intent.CLAIM_ENCOUNTER,
+            "Refused. No claim-to-encounter rows matched this member.",
+        )
+    lines = [f"Claim-to-encounter evidence: {min(len(normalized), _MAX_LIST_ROWS)} rows."]
+    citations: list[Citation] = []
+    for row in normalized[:_MAX_LIST_ROWS]:
+        citation = ClaimCitation(
+            table="CLAIM",
+            patient_id=row.get("patient_id") or "",
+            claim_id=row.get("claim_id") or "",
+            encounter_id=row.get("encounter_id") or "",
+            service_date=row.get("service_date") or "",
+        )
+        lines.append(
+            f"Claim {row.get('claim_id') or 'not recorded'} is tied to encounter "
+            f"{row.get('encounter_id') or 'not recorded'} on "
+            f"{row.get('service_date') or 'date not recorded'}; "
+            f"class {row.get('encounter_class') or 'not recorded'}. "
+            f"{format_citation(citation)}."
+        )
+        citations.append(citation)
+    return _cited(Intent.CLAIM_ENCOUNTER, " ".join(lines), tuple(citations))
+
+
+def answer_coverage(rows: Sequence[Mapping[str, object]]) -> Answer:
+    """Show payer spans without inventing missing member ids."""
+    normalized = [normalize_row(row) for row in rows]
+    if not normalized:
+        return refuse(Intent.COVERAGE_LIST, "Refused. No coverage spans matched this member.")
+    lines = [f"Coverage evidence: {min(len(normalized), _MAX_LIST_ROWS)} spans."]
+    citations: list[Citation] = []
+    for row in normalized[:_MAX_LIST_ROWS]:
+        citation = CoverageCitation(
+            table="MEMBER_COVERAGE",
+            patient_id=row.get("patient_id") or "",
+            payer_id=row.get("payer_id") or "",
+            start=row.get("start") or "",
+            end=row.get("end") or "",
+        )
+        member_id = row.get("member_id") or "blank in source"
+        lines.append(
+            f"{row.get('payer_name') or 'payer name not recorded'} from "
+            f"{row.get('start') or 'start not recorded'} to "
+            f"{row.get('end') or 'end not recorded'}; member id {member_id}. "
+            f"{format_citation(citation)}."
+        )
+        citations.append(citation)
+    lines.append("The patient UUID remains the member key; blank member ids stay blank.")
+    return _cited(Intent.COVERAGE_LIST, " ".join(lines), tuple(citations))
 
 
 def answer_risk(risk_rows: Sequence[Mapping[str, object]]) -> Answer:

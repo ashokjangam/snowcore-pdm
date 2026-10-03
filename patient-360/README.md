@@ -1,8 +1,30 @@
-# Patient 360
+# Patient and Member 360 Clinical Document Copilot
 
-One Streamlit-in-Snowflake page over the MITRE Synthea sample already on disk (108 simulated Massachusetts patients, CSV plus C-CDA). The page cites warehouse rows or it refuses. It does not invent a chart, a dose, a discharge summary, or a risk model.
+One Streamlit-in-Snowflake clinical document copilot over the paired MITRE Synthea sample
+(108 simulated Massachusetts patients, CSV plus C-CDA). Problem 04 permits clinical or
+regulatory documents; this implementation deliberately uses the clinical path. Every displayed
+answer cites warehouse rows or it refuses.
 
-The track is a cited chart and a frozen point count. It is not a GO against a validated-risk bar: the inspected cohort does not support that claim. Say that in the first minute of a demo.
+The primary outcome is cited evidence retrieval across chart, document, claim, encounter, and
+coverage records. The frozen point count is a secondary descriptive cohort audit, not a validated
+risk model.
+
+## Supported cited questions
+
+| Evidence path | Example |
+| --- | --- |
+| Member + encounter | `Show this member's chart summary and recent encounters.` |
+| Conditions + C-CDA Problems | `Which conditions are recorded for this member, and where are they written?` |
+| Medication + C-CDA Medications | `Show this member's medication list with source evidence.` |
+| Allergy guard | `What allergy is recorded for that patient on 18 June 2005?` |
+| Care plan + Plan of Care | `Show the care plans for this member with cited evidence.` |
+| Laboratory | `What are this member's latest laboratory results?` |
+| Procedure / immunization | `Which procedures are recorded for this member?` |
+| Claim + encounter | `Show claims tied to encounters for this member.` |
+| Payer span | `Show payer coverage spans for this member.` |
+
+Treatment changes, absent discharge notes, external claims, and regulatory labels remain hard
+refusals because those sources are not in this clinical-document build.
 
 ## What the page shows
 
@@ -111,27 +133,27 @@ A passing unit test does not prove the warehouse load. Compare live query counts
 
 ## Deploy
 
-From the repository root, with a `snow` connection named `patient360` (ACCOUNTADMIN or a role that can create a database and roles):
+From this directory, with Python 3.10+ and a Snowflake CLI connection named `patient360`
+(ACCOUNTADMIN or a role that can create the database and roles):
 
 ```text
-snow sql -c patient360 -f patient-360/sql/00_setup.sql
-snow sql -c patient360 -f patient-360/sql/10_raw_ddl.sql
-snow sql -c patient360 -f patient-360/sql/20_load.sql
-snow sql -c patient360 -f patient-360/sql/30_core_views.sql
-snow sql -c patient360 -f patient-360/sql/40_semantic_view.sql
-snow sql -c patient360 -f patient-360/sql/90_roles_grants.sql
-snow sql -c patient360 -f patient-360/tests/expected_checks.sql   # FAILED_GATE_COUNT must be 0
-snow sql -c patient360 -f patient-360/tests/demo_questions.sql
-cd patient-360
+python scripts/bootstrap_synthea.py
+powershell -File scripts/Invoke-Patient360Load.ps1 -Load
 snow streamlit deploy --replace -c patient360
 snow sql -c patient360 -f sql/95_app_grants.sql
 ```
 
-`20_load.sql` uses `file:///path/to/hackathon-root/...` placeholders for `PUT`. Replace that prefix with the local folder that contains `data/patient-360/` and this `patient-360/` tree before loading.
+The bootstrap downloads the exact paired MITRE archives, verifies their pinned SHA-256
+hashes, extracts them into ignored `data/`, and runs the C-CDA parser. The PowerShell
+runner expands local file URIs into ignored `generated/20_load.generated.sql`; it then
+runs setup, all 18 CSV loads, C-CDA load, views, grants, expected gates, and rehearsal SQL.
+An expected-check failure makes Snowflake CLI exit non-zero. No path replacement is manual.
 
 `snowflake.yml` deploys `CORE.PATIENT_360_APP` on warehouse `PATIENT_360_WH`. The stage keeps `streamlit/patient_360.py` with `app/` and `environment.yml` at the root; the page finds `app/` in its parent directory. The app runs on the Python 3.11 container runtime.
 
-Teammates get the analyst role, which reads `CORE` and the app but not `RAW` (no `SSN`, `DRIVERS`, or `PASSPORT`):
+Teammates get the analyst role, which reads `CORE` and the app but not `RAW`.
+`CORE.PATIENT` also omits direct identifiers, street/ZIP, precise geolocation, and
+income/expense fields:
 
 ```text
 CREATE USER <teammate> PASSWORD = '<temporary>' MUST_CHANGE_PASSWORD = TRUE
@@ -165,7 +187,7 @@ Question 3, when `RISK_SCORE` matches the frozen measurement: cohort 97, events 
 
 ## Sources
 
-Synthea sample CSV and C-CDA from MITRE SyntheticMass, paired export, local copies under `data/patient-360/`. MITRE states the synthetic data may be used without restriction for secondary uses. The generator is Apache-2.0. Citation: Jason Walonoski et al., JAMIA 25(3), 2018, 230–238, https://doi.org/10.1093/jamia/ocx079. SNOMED CT, LOINC, and RxNorm keep their own licenses.
+Synthea sample CSV and C-CDA from MITRE SyntheticMass, paired export, local copies under `data/csv/` and `data/ccda/`. MITRE states the synthetic data may be used without restriction for secondary uses. The generator is Apache-2.0. Citation: Jason Walonoski et al., JAMIA 25(3), 2018, 230–238, https://doi.org/10.1093/jamia/ocx079. SNOMED CT, LOINC, and RxNorm keep their own licenses.
 
 ## Cuts
 

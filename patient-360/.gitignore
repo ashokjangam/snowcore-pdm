@@ -10,3 +10,4 @@ venv/
 *.log
 output/
 generated/
+data/
