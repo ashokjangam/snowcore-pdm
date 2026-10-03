@@ -1,0 +1,13 @@
+{
+  "snow_connection": "patient360",
+  "database": "PATIENT_360",
+  "schema": "RAW",
+  "warehouse": "PATIENT_360_XS",
+  "role": "",
+  "stage": "PATIENT_360_RAW",
+  "file_format": "PATIENT_360_CSV",
+  "table": "DOCUMENT_SECTION",
+  "create_warehouse": false,
+  "expected_documents": 108,
+  "notes": "No passwords, tokens, or private keys belong in this file. Point snow_connection at a Snowflake CLI connection (see snowflake.connection.example.toml) stored outside the repository."
+}

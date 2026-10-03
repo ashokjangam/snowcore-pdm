@@ -1,0 +1,19 @@
+definition_version: 2
+entities:
+  patient_360_app:
+    type: streamlit
+    identifier:
+      name: PATIENT_360_APP
+      database: PATIENT_360
+      schema: CORE
+    title: "Patient 360 (Synthea, not for care)"
+    query_warehouse: PATIENT_360_WH
+    main_file: streamlit/patient_360.py
+    artifacts:
+      - streamlit/patient_360.py
+      - streamlit/pyproject.toml
+      - streamlit/.streamlit/config.toml
+      - src: streamlit/environment.yml
+        dest: environment.yml
+      - src: app/*.py
+        dest: app/

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PATIENT 360 · cited member chart — the A to Z guide</title>
+<style>
+:root{--bg:#0a0e14;--panel:#111823;--panel2:#162030;--line:#243044;--text:#dfe7f1;--muted:#8b9bb0;--teal:#2dd4bf;--amber:#f5b942;--red:#f06a6a;--blue:#5aa9ff;--violet:#a78bfa;--mono:'Cascadia Code','Consolas',monospace}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 'Segoe UI',system-ui,sans-serif}
+a{color:var(--blue)} code,pre{font-family:var(--mono)}
+code{background:#1a2433;padding:1px 5px;border-radius:4px;font-size:.88em;color:#cfe3ff}
+pre{background:#0d131c;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;color:#cfe3ff}
+.layout{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+nav{position:sticky;top:0;height:100vh;overflow:auto;background:#0c121b;border-right:1px solid var(--line);padding:18px 14px}
+nav .brand{font-weight:700;letter-spacing:.04em;font-size:13px;color:var(--teal);text-transform:uppercase}
+nav .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+nav a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:4px 8px;border-radius:6px}
+nav a:hover{background:var(--panel2);color:var(--text)}
+main{padding:28px 44px 80px;max-width:1280px}
+h1{font-size:30px;margin:0 0 6px} h2{font-size:23px;margin:0 0 4px;border-bottom:1px solid var(--line);padding-bottom:8px}
+h3{font-size:17px;margin:22px 0 8px} .lede{color:var(--muted);font-size:16px;max-width:920px}
+section{padding:34px 0 10px} .grid{display:grid;gap:14px} .g2{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.g4,.g3{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:1fr}nav{display:none}}
+.card,.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em} .tile .v{font-size:26px;font-weight:700} .tile .n{font-size:12.5px;color:var(--muted)}
+.plain,.warn,.bad{padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+.plain{border-left:3px solid var(--teal);background:#0f1b1c} .plain b.t{color:var(--teal)}
+.warn{border-left:3px solid var(--amber);background:#1d170b} .warn b.t{color:var(--amber)}
+.bad{border-left:3px solid var(--red);background:#1e1012} .bad b.t{color:var(--red)}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:999px;margin-right:4px}
+.b-obs{background:#0f3a33;color:var(--teal)} .b-der{background:#10263f;color:var(--blue)} .b-syn{background:#3a2a0c;color:var(--amber)}
+.b-cho{background:#2b1d45;color:var(--violet)} .b-ref{background:#3a1518;color:var(--red)} .b-drop{background:#2a2f38;color:#aab4c3}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;background:#0e1520} .num{text-align:right}
+td.win{color:var(--teal);font-weight:700} td.lose{color:var(--muted)}
+.legend-row{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px;color:var(--muted)}
+.timeline{margin:14px 0 4px 10px;padding-left:22px;border-left:2px solid var(--line)}
+.timeline .ev{position:relative;margin:0 0 16px}
+.timeline .ev::before{content:'';position:absolute;left:-30px;top:6px;width:12px;height:12px;border-radius:50%;background:#7c8ba1;border:2px solid var(--bg)}
+.timeline .ev.drop::before{background:var(--red)} .timeline .ev.keep::before{background:var(--teal)}
+svg{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:8px 0}
+.chip{display:inline-block;font-family:var(--mono);font-size:12px;background:#10263f;color:#cfe3ff;border:1px solid #1f3a5c;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0}
+.qa{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:10px 0}
+.qa .q{font-weight:600} .qa .a{color:var(--muted);margin-top:4px}
+.versus{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.versus>div{padding:14px 16px} .versus .us{background:#0f1b1c;border-right:1px solid var(--line)} .versus .them{background:#15121a}
+.versus h3{margin-top:0} .versus .us h3{color:var(--teal)} .versus .them h3{color:var(--violet)}
+</style></head>
+<body><div class="layout"><nav><div class="brand">PATIENT 360 · TRidents</div><div class="sub">Cited member chart · A to Z</div>
+<a href="#summary">0 · One-page summary</a>
+<a href="#why">1 · Why this beats Problem 3</a>
+<a href="#problem">2 · The problem we answer</a>
+<a href="#journey">3 · How we chose and built it</a>
+<a href="#data">4 · The data</a>
+<a href="#arch">5 · Snowflake architecture</a>
+<a href="#cite">6 · The citation contract</a>
+<a href="#answers">7 · Six questions, six outcomes</a>
+<a href="#risk">8 · The honest point count</a>
+<a href="#guard">9 · Guardrails and governance</a>
+<a href="#app">10 · The judge-facing app</a>
+<a href="#checks">11 · Every check we run</a>
+<a href="#coco">12 · CoCo CLI evidence</a>
+<a href="#demo">13 · Six-minute demo script</a>
+<a href="#not">14 · What it does NOT do</a>
+<a href="#access">15 · Team access</a>
+<a href="#runbook">16 · Runbook and file map</a>
+<a href="#glossary">17 · Glossary</a></nav>
+<main>
+
+<section id="summary">
+<h1>Patient 360: the complete A to Z guide</h1>
+<p class="lede">A member chart in Snowflake that answers a question only when it can point at the exact warehouse row or document cell behind the answer, and refuses otherwise.
+It joins 108 simulated Synthea patients across their encounters, claims and their C-CDA clinical documents on one checked key, and is deployed as a Streamlit-in-Snowflake app built with the CoCo CLI.</p>
+<div class="grid g4">
+  <div class="tile"><div class="k">Members joined</div><div class="v">108 / 108</div><div class="n">Patient id = document id = file UUID on every record. Zero orphans.</div></div>
+  <div class="tile"><div class="k">Encounters · claims</div><div class="v">5,571 · 9,421</div><div class="n">Every claim's appointment id is an encounter id.</div></div>
+  <div class="tile"><div class="k">Expected-check gates failed</div><div class="v" style="color:var(--teal)">0</div><div class="n">Row counts, orphans, document match, PII denial, citations.</div></div>
+  <div class="tile"><div class="k">Deployed</div><div class="v" style="color:var(--teal)">Snowflake</div><div class="n"><a href="https://app.snowflake.com/streamlit/ZWMCSRZ/OM93164/#/apps/elbuuteamrmdc3c27of3">PATIENT_360_APP</a> in <code>PATIENT_360.CORE</code>, warehouse <code>PATIENT_360_WH</code>.</div></div>
+</div>
+<div class="plain"><b class="t">In one sentence.</b> Ask "which antihistamine is this member on, and where is it written?" and the app returns fexofenadine with a chip for the document cell <code>medications-desc-2</code>, a chip for the one medication row, and the encounter that ties them; ask it to change the dose and it refuses.</div>
+</section>
+
+<section id="why">
+<h2>1 · Why Patient 360 beats Problem 3 (Risk, fraud and regulatory) for a judge</h2>
+<p>Before writing any code we inspected all four candidate tracks against the same five 20-point dimensions. For Problem 3 we inspected the IBM AML HI-Small dataset (5,078,345 transactions); for Patient 360, the MITRE Synthea sample (CSV plus C-CDA). These are the achievable scores for a 36-hour build:</p>
+<svg viewBox="0 0 1100 330" width="100%" role="img" aria-label="Achievable score by dimension, Patient 360 versus Problem 3">
+<line x1="280" x2="280" y1="20" y2="295" stroke="#243044"/>
+<g font-size="11" fill="#8b9bb0"><text x="280" y="315" text-anchor="middle">0</text><text x="470" y="315" text-anchor="middle">5</text><text x="660" y="315" text-anchor="middle">10</text><text x="850" y="315" text-anchor="middle">15</text><text x="1040" y="315" text-anchor="middle">20</text></g>
+<g stroke="#1a2433"><line x1="470" x2="470" y1="20" y2="295"/><line x1="660" x2="660" y1="20" y2="295"/><line x1="850" x2="850" y1="20" y2="295"/><line x1="1040" x2="1040" y1="20" y2="295"/></g>
+<g font-size="13" fill="#dfe7f1">
+<text x="10" y="50">1 · Keys and text joined</text>
+<text x="10" y="104">2 · Validated outcome</text>
+<text x="10" y="158">3 · End-to-end workflow</text>
+<text x="10" y="212">4 · Governed language</text>
+<text x="10" y="266">5 · 36-hour Snowflake demo</text>
+</g>
+<g fill="#2dd4bf"><rect x="280" y="30" width="646" height="16" rx="3"/><rect x="280" y="84" width="304" height="16" rx="3"/><rect x="280" y="138" width="456" height="16" rx="3"/><rect x="280" y="192" width="456" height="16" rx="3"/><rect x="280" y="246" width="570" height="16" rx="3"/></g>
+<g fill="#a78bfa"><rect x="280" y="50" width="532" height="16" rx="3"/><rect x="280" y="104" width="380" height="16" rx="3"/><rect x="280" y="158" width="266" height="16" rx="3"/><rect x="280" y="212" width="342" height="16" rx="3"/><rect x="280" y="266" width="380" height="16" rx="3"/></g>
+<g font-size="11" fill="#0a0e14" font-weight="700"><text x="918" y="43" text-anchor="end">17</text><text x="576" y="97" text-anchor="end">8</text><text x="728" y="151" text-anchor="end">12</text><text x="728" y="205" text-anchor="end">12</text><text x="842" y="259" text-anchor="end">15</text>
+<text x="804" y="63" text-anchor="end">14</text><text x="652" y="117" text-anchor="end">10</text><text x="538" y="171" text-anchor="end">7</text><text x="614" y="225" text-anchor="end">9</text><text x="652" y="279" text-anchor="end">10</text></g>
+</svg>
+<p class="legend-row"><span style="color:var(--teal)">■ Patient 360: 64 achievable / 68 ceiling</span><span style="color:var(--violet)">■ Problem 3, risk and fraud: 50 achievable / 57 ceiling</span><span>Supply chain 54.5 / 61.5 · Customer 360 40 / 45</span></p>
+
+<div class="versus">
+<div class="us"><h3>Patient 360 gives a judge</h3><ul>
+<li><b>A checkable answer.</b> Every sentence carries a tuple the judge can paste into SQL and see the same row.</li>
+<li><b>Real unstructured text.</b> 108 C-CDA documents parsed into cells and joined to the CSV chart on the same UUID, 108 of 108.</li>
+<li><b>A question-to-finding workflow.</b> Pick a member, read the cited chart, ask a question, get a cited answer or a refusal.</li>
+<li><b>Governance you can see.</b> SSN, driver's licence and passport never leave <code>RAW</code>; the analyst role is denied them.</li>
+<li><b>A light build.</b> 18 small CSVs plus 108 XML files on an X-Small warehouse, which is why the demo is finished and tested.</li>
+</ul></div>
+<div class="them"><h3>Problem 3 would give a judge</h3><ul>
+<li><b>A generator tag, not a verdict.</b> <code>Is Laundering</code> comes from the simulator (Altman et al.), not from an investigator decision or a filed suspicious-activity report.</li>
+<li><b>No regulatory text.</b> No policy passage, liquidity figure, credit outcome or filing exists on those entity ids, so a "regulatory" answer has nothing to cite.</li>
+<li><b>Thin entities.</b> Names are role labels such as <code>Sole Proprietorship #50438</code>; 1,968 of 5,177 positives have no typology row.</li>
+<li><b>Leakage traps.</b> File order is not time order, the post-window positive rate is 59.1%, and bank ids are zero-padded in one file only.</li>
+<li><b>A heavy build.</b> 5.1 million rows and a pattern parser eat the time a judge-facing app needs.</li>
+</ul></div>
+</div>
+
+<h3>What a judge asks, and who can answer it</h3>
+<table><thead><tr><th>Judge's question</th><th>Patient 360</th><th>Problem 3 (AML)</th></tr></thead><tbody>
+<tr><td>"Show me where that answer came from."</td><td class="win">Document id, section LOINC and element id, plus the CSV row with patient, encounter, code and start.</td><td class="lose">A transaction row and a simulator label. No narrative source.</td></tr>
+<tr><td>"Does structured data meet unstructured data?"</td><td class="win">Yes: C-CDA cells reconcile to CSV rows (medications 3,850, allergies 105).</td><td class="lose">No documents. The pattern file is another structured table.</td></tr>
+<tr><td>"What happens when the AI should not answer?"</td><td class="win">Visible refusals: dose change, a 2019 discharge summary, openFDA labels.</td><td class="lose">Every regulatory question is a refusal, because nothing exists to cite.</td></tr>
+<tr><td>"Is personal data protected?"</td><td class="win">PII is dropped in <code>CORE</code> and denied to the analyst role. Verified.</td><td class="lose">Synthetic, but there is no meaningful PII boundary to demonstrate.</td></tr>
+<tr><td>"Is the outcome validated?"</td><td>Honest no: a frozen point count on 14 events, labelled as such.</td><td>Partial: a generator label, so it scores 10 against our 8.</td></tr>
+<tr><td>"Could a business user follow this?"</td><td class="win">A care manager or payer analyst reading one member chart.</td><td class="lose">An AML investigator with no case file, policy or filing to read.</td></tr>
+</tbody></table>
+<div class="warn"><b class="t">Where Problem 3 is stronger.</b> Its label is closer to a measured outcome (dimension 2: 10 against our 8). We say this out loud. It loses on every other dimension, and by 14 points overall, because a judge cannot trace an AML answer to a source passage.</div>
+</section>
+
+<section id="problem">
+<h2>2 · The problem we answer</h2>
+<p>Problem 04, Patient / Member 360, asks for a unified member view across clinical and claims data that answers questions with evidence. It accepts a cited answer, evidence retrieval, or risk stratification, all on synthetic data. We deliver all three, and we are explicit about how strong each one is:</p>
+<div class="grid g3">
+<div class="card"><h3>Cited answer</h3><p>Natural-language questions answered only from rows the SQL step returned, with the citation tuple on screen.</p><span class="badge b-obs">BUILT</span></div>
+<div class="card"><h3>Evidence retrieval</h3><p>The rows behind each answer are one click away: the C-CDA cell, the CSV row and the claim on the same encounter.</p><span class="badge b-obs">BUILT</span></div>
+<div class="card"><h3>Risk stratification</h3><p>A frozen, pre-specified four-point count with its measured bucket table. Not a validated model, and labelled that way.</p><span class="badge b-cho">HONEST LIMIT</span></div>
+</div>
+</section>
+
+<section id="journey">
+<h2>3 · How we chose and built it</h2>
+<div class="timeline">
+<div class="ev keep"><b>Inspect four tracks on disk</b> <span class="badge b-cho">CHOICE</span><br>Patient 360, supply chain, risk and fraud, customer 360. The same five dimensions for each, scoring only the joins the files actually support.</div>
+<div class="ev drop"><b>Customer 360</b> <span class="badge b-drop">DROPPED</span><br>No customer, policy, claim, payment or call key. The only cross-file join was a disproven id collision. 40 achievable.</div>
+<div class="ev drop"><b>Risk, fraud and regulatory (Problem 3)</b> <span class="badge b-drop">DROPPED</span><br>Real typology join, but a generator label, no policy text and no filing, plus a 5.1-million-row build. 50 achievable.</div>
+<div class="ev drop"><b>Supply chain</b> <span class="badge b-drop">FALLBACK</span><br>One clean on-time-delivery metric, but no document and an unconfirmed licence. 54.5 achievable. Kept as the switch if patient gates failed by hour 12.</div>
+<div class="ev keep"><b>Patient 360</b> <span class="badge b-obs">CHOSEN</span><br>One patient key crosses the chart, the claim and the source document, and a worked question already reconciles. 64 achievable.</div>
+<div class="ev keep"><b>Build with CoCo CLI in four phases</b><br>Planning, development, execution and testing prompts are saved in <code>patient-360/coco/prompts/</code>. Every gate passed: 0 failed expected checks.</div>
+<div class="ev keep"><b>Make it judge-facing</b><br>The first app showed raw tables. We rebuilt it to lead with three outcomes, population numbers, prefilled cited answers and refusals, with source rows folded away.</div>
+</div>
+</section>
+
+<section id="data">
+<h2>4 · The data</h2>
+<table><thead><tr><th>Source</th><th>What it is</th><th class="num">Size</th><th>Role</th></tr></thead><tbody>
+<tr><td>Synthea CSV export</td><td>18 tables: patients, encounters, claims, claim lines, conditions, medications, observations, allergies, procedures and more</td><td class="num">5,960,866 bytes</td><td>Structured chart and claims</td></tr>
+<tr><td>Synthea C-CDA export</td><td>108 XML continuity-of-care documents, one per patient, sections coded by LOINC</td><td class="num">4,866,086 bytes</td><td>Unstructured narrative, parsed to cells</td></tr>
+</tbody></table>
+<div class="grid g4">
+<div class="tile"><div class="k">Claim lines</div><div class="v">85,047</div><div class="n">Every <code>CLAIMID</code> resolves.</div></div>
+<div class="tile"><div class="k">Observations</div><div class="v">68,648</div><div class="n">Labs, vitals, surveys.</div></div>
+<div class="tile"><div class="k">Medications</div><div class="v">3,850</div><div class="n">All 3,850 reconcile to a C-CDA cell.</div></div>
+<div class="tile"><div class="k">Conditions</div><div class="v">3,517</div><div class="n">SNOMED CT coded.</div></div>
+</div>
+<p><span class="badge b-obs">OBSERVED</span> Every SSN starts with <code>999</code>, every name contains a digit, every address is in Massachusetts. It is synthetic by construction. Licence: MITRE allows unrestricted secondary use; the generator is Apache-2.0; citation Walonoski et al., JAMIA 2018. SNOMED CT, LOINC and RxNorm terminology licences are named beside it.</p>
+<div class="warn"><b class="t">Caveat we show.</b> The C-CDA is one lifetime summary per patient from the same generator, not an independent discharge note. <code>MEMBERID</code> is blank on 1,082 of 3,815 coverage spans, so the patient UUID is the member key.</div>
+</section>
+
+<section id="arch">
+<h2>5 · Snowflake architecture</h2>
+<svg viewBox="0 0 1100 260" width="100%" role="img" aria-label="Data flow">
+<defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5aa9ff"/></marker></defs>
+<g font-size="12" fill="#dfe7f1">
+<rect x="20" y="40" width="160" height="60" rx="10" fill="#162030" stroke="#2dd4bf"/><text x="100" y="66" text-anchor="middle">18 Synthea CSVs</text><text x="100" y="84" text-anchor="middle" fill="#8b9bb0">stage + COPY</text>
+<rect x="20" y="150" width="160" height="60" rx="10" fill="#162030" stroke="#2dd4bf"/><text x="100" y="176" text-anchor="middle">108 C-CDA XML</text><text x="100" y="194" text-anchor="middle" fill="#8b9bb0">parsed to cells</text>
+<rect x="240" y="80" width="190" height="100" rx="10" fill="#162030" stroke="#8b9bb0"/><text x="335" y="110" text-anchor="middle" font-weight="700">RAW</text><text x="335" y="130" text-anchor="middle" fill="#8b9bb0">18 tables +</text><text x="335" y="148" text-anchor="middle" fill="#8b9bb0">DOCUMENT_SECTION</text><text x="335" y="166" text-anchor="middle" fill="#f06a6a">holds SSN / IDs</text>
+<rect x="490" y="80" width="190" height="100" rx="10" fill="#162030" stroke="#5aa9ff"/><text x="585" y="110" text-anchor="middle" font-weight="700">CORE views</text><text x="585" y="130" text-anchor="middle" fill="#8b9bb0">PII dropped</text><text x="585" y="148" text-anchor="middle" fill="#8b9bb0">RISK_FEATURE / SCORE</text><text x="585" y="166" text-anchor="middle" fill="#8b9bb0">MEMBER_COVERAGE</text>
+<rect x="740" y="40" width="160" height="60" rx="10" fill="#162030" stroke="#a78bfa"/><text x="820" y="66" text-anchor="middle">SEM_MEMBER</text><text x="820" y="84" text-anchor="middle" fill="#8b9bb0">semantic view</text>
+<rect x="740" y="150" width="160" height="60" rx="10" fill="#162030" stroke="#f5b942"/><text x="820" y="176" text-anchor="middle">Answer engine</text><text x="820" y="194" text-anchor="middle" fill="#8b9bb0">SQL → tuple → text</text>
+<rect x="940" y="95" width="140" height="70" rx="10" fill="#0f1b1c" stroke="#2dd4bf"/><text x="1010" y="125" text-anchor="middle" font-weight="700">Streamlit</text><text x="1010" y="143" text-anchor="middle" fill="#8b9bb0">PATIENT_360_APP</text>
+</g>
+<g stroke="#5aa9ff" stroke-width="2" fill="none" marker-end="url(#ar)">
+<path d="M180,70 L238,110"/><path d="M180,180 L238,150"/><path d="M430,130 L488,130"/><path d="M680,110 L738,75"/><path d="M680,150 L738,180"/><path d="M900,70 L938,115"/><path d="M900,180 L938,145"/>
+</g>
+<text x="550" y="240" font-size="12" fill="#8b9bb0" text-anchor="middle">Roles: PATIENT_360_LOADER writes RAW · PATIENT_360_ANALYST reads CORE + app only · PATIENT_360_ADMIN owns objects · warehouse PATIENT_360_WH (X-Small)</text>
+</svg>
+<table><thead><tr><th>Object</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>PATIENT_360.RAW.*</code></td><td>The 18 CSV tables under their file names, plus <code>DOCUMENT_SECTION(document_id, patient_id, section_loinc, section_title, element_id, text, code)</code>.</td></tr>
+<tr><td><code>PATIENT_360.CORE.*</code></td><td>Views over RAW that drop <code>SSN</code>, <code>DRIVERS</code> and <code>PASSPORT</code> and rename columns into a stable contract.</td></tr>
+<tr><td><code>CORE.RISK_FEATURE</code>, <code>CORE.RISK_SCORE</code></td><td>CSV facts before 2023-01-01 only; the four frozen points; cohort and bucket table. No C-CDA text.</td></tr>
+<tr><td><code>CORE.SEM_MEMBER</code></td><td>Semantic view over patient, encounter, condition, medication, observation, claim, claim line, coverage and document section. Synonyms: member, patient, beneficiary.</td></tr>
+<tr><td><code>CORE.PATIENT_360_APP</code></td><td>Streamlit in Snowflake, container runtime, Python 3.11, deployed from <code>snowflake.yml</code> with the Snowflake CLI.</td></tr>
+</tbody></table>
+</section>
+
+<section id="cite">
+<h2>6 · The citation contract</h2>
+<p>An answer is allowed only if it can return one of three tuples. No tuple, no answer.</p>
+<div class="grid g3">
+<div class="card"><h3>Document</h3><span class="chip">(document_id, section_loinc, element_id)</span><p>A cell in a C-CDA section. Element ids repeat across files (<code>medications-desc-1</code> appears in 105 of 108), so the document id is mandatory.</p></div>
+<div class="card"><h3>Table</h3><span class="chip">(table, patient_id, encounter_id, code, start)</span><p>Several Synthea tables have no row id, so the natural key is patient, encounter, code and start.</p></div>
+<div class="card"><h3>Cohort</h3><span class="chip">(RISK_SCORE, index_date, horizon_end, score)</span><p>A point-count bucket, with its index date and horizon, never a probability.</p></div>
+</div>
+<div class="plain"><b class="t">Why a judge cares.</b> Each chip is a lookup they can run. The answer text is generated from the rows, so it never says anything the rows do not.</div>
+</section>
+
+<section id="answers">
+<h2>7 · Six questions, six outcomes</h2>
+<p>Worked member: <b>Alexandra16 Mosciski958</b>, <code>37549f60-b5a3-69cd-dea6-5a71c4bc23cf</code>.</p>
+<div class="qa"><div class="q"><span class="badge b-obs">ANSWERED</span> 1 · Which antihistamine is on her medication list, and where is it written?</div>
+<div class="a">Fexofenadine hydrochloride 60 MG Oral Tablet, RxNorm <code>997501</code>, started 2005-06-18.<br>
+<span class="chip">document 37549f60-…-5a71c4bc23cf</span><span class="chip">LOINC 10160-0</span><span class="chip">medications-desc-2</span><span class="chip">medications-code-2</span><span class="chip">MEDICATION row · encounter 37549f60-…-c7a0b0133ccf</span></div></div>
+<div class="qa"><div class="q"><span class="badge b-obs">ANSWERED</span> 2 · What allergy is recorded on 18 June 2005?</div>
+<div class="a">Allergic disposition, SNOMED <code>609328004</code>, same encounter. The guard notes that the C-CDA entry also carries <code>419199007</code> and never substitutes it for the CSV match.</div></div>
+<div class="qa"><div class="q"><span class="badge b-obs">ANSWERED</span> 3 · How did the frozen 2023 point count sort the cohort?</div>
+<div class="a">97 patients, 14 events, base rate 14.43%; buckets 0/1/2/3/4 = 19/37/35/6/0. Shown as a point count, not a validated stratifier (section 8).</div></div>
+<div class="qa"><div class="q"><span class="badge b-ref">REFUSED</span> 4 · Change the fexofenadine dose.</div>
+<div class="a">Refused. No row is an order, and the app does not write back or recommend treatment.</div></div>
+<div class="qa"><div class="q"><span class="badge b-ref">REFUSED</span> 5 · Quote the 2019 discharge summary.</div>
+<div class="a">Refused. The folder has lifetime summaries only; there is no encounter-scoped discharge document to cite.</div></div>
+<div class="qa"><div class="q"><span class="badge b-ref">REFUSED</span> 6 · What does the openFDA label say?</div>
+<div class="a">Refused. RxCUI 997501 maps to 31 labels with a strength conflict inside one; that join is outside the scored demo.</div></div>
+</section>
+
+<section id="risk">
+<h2>8 · The honest point count</h2>
+<p>Four points, fixed before the rates were read: age at index ≥ 65; a prior emergency or inpatient encounter; at least 8 conditions active at the index; last prior HbA1c (<code>4548-4</code>) ≥ 6.5. Index 2023-01-01, horizon to 2024-01-01. Outcome: any emergency or inpatient encounter in the horizon.</p>
+<svg viewBox="0 0 1100 300" width="100%" role="img" aria-label="Event rate by point-count bucket">
+<g stroke="#1a2433"><line x1="80" x2="1070" y1="250" y2="250"/><line x1="80" x2="1070" y1="195" y2="195"/><line x1="80" x2="1070" y1="140" y2="140"/><line x1="80" x2="1070" y1="85" y2="85"/><line x1="80" x2="1070" y1="30" y2="30"/></g>
+<g font-size="11" fill="#8b9bb0" text-anchor="end"><text x="72" y="254">0%</text><text x="72" y="199">10%</text><text x="72" y="144">20%</text><text x="72" y="89">30%</text><text x="72" y="34">40%</text></g>
+<g fill="#2dd4bf"><rect x="130" y="221.1" width="120" height="28.9" rx="3"/><rect x="330" y="160.8" width="120" height="89.2" rx="3" fill="#5aa9ff"/><rect x="530" y="171.4" width="120" height="78.6" rx="3" fill="#f5b942"/><rect x="730" y="66.7" width="120" height="183.3" rx="3" fill="#f06a6a"/></g>
+<rect x="930" y="246" width="120" height="4" fill="#2a2f38"/>
+<line x1="80" x2="1070" y1="170.6" y2="170.6" stroke="#a78bfa" stroke-dasharray="6 4"/><text x="1066" y="164" font-size="11" fill="#a78bfa" text-anchor="end">base rate 14.43%</text>
+<g font-size="12" fill="#dfe7f1" text-anchor="middle"><text x="190" y="214">5.26%</text><text x="390" y="153">16.22%</text><text x="590" y="164">14.29%</text><text x="790" y="59">33.33%</text><text x="990" y="238" fill="#8b9bb0">no patients</text></g>
+<g font-size="12" fill="#8b9bb0" text-anchor="middle"><text x="190" y="272">score 0 · 19 pts</text><text x="390" y="272">score 1 · 37 pts</text><text x="590" y="272">score 2 · 35 pts</text><text x="790" y="272">score 3 · 6 pts</text><text x="990" y="272">score 4 · 0 pts</text></g>
+</svg>
+<div class="bad"><b class="t">What we say on screen.</b> Score 2 sits below score 1, and score 3 is 6 patients. Fourteen events cannot validate a model or support a holdout. Retuning the points after reading this table would fit the same 97 patients, so we did not. Score ≥ 2 is 41 patients at 17.07%. Seven patients who died and four born after the index are excluded.</div>
+</section>
+
+<section id="guard">
+<h2>9 · Guardrails and governance</h2>
+<table><thead><tr><th>Guard</th><th>What it stops</th><th>Where</th></tr></thead><tbody>
+<tr><td>PII drop</td><td>SSN, driver's licence and passport reaching any analyst query</td><td><code>CORE</code> views + analyst role denied on RAW (tested)</td></tr>
+<tr><td>Citation or refuse</td><td>Any answer without a document, table or cohort tuple</td><td><code>app/answers.py</code>, <code>app/guardrails.py</code></td></tr>
+<tr><td>Allergy-code guard</td><td>Quoting <code>419199007</code> instead of the CSV match <code>609328004</code></td><td>Answer engine + warning box</td></tr>
+<tr><td>Time guard</td><td>Lifetime C-CDA text or post-index facts leaking into risk features</td><td><code>CORE.RISK_FEATURE</code></td></tr>
+<tr><td>Read-only SQL</td><td>Writes, DDL or multiple statements from the app</td><td>SQL safety checks in <code>app/queries.py</code>, unit-tested</td></tr>
+<tr><td>Claim filter</td><td>Words like "predicts", "diagnoses" or "recommends" in banner text</td><td>Banned-claim tests over banner, lead and outcomes</td></tr>
+<tr><td>Optional narration</td><td>The demo depending on a model that the account may not have</td><td>Cortex <code>AI_COMPLETE</code> off by default; trial accounts lack it</td></tr>
+</tbody></table>
+</section>
+
+<section id="app">
+<h2>10 · The judge-facing app</h2>
+<div class="grid g2">
+<div class="card"><h3>Top of the page: the population</h3><ul>
+<li>One lead line: "This is a synthetic chart. Every answer cites a warehouse row, or the page refuses."</li>
+<li>Three outcome cards: medication citation, allergy-code guard, honest point count.</li>
+<li>Four population metrics: 108 members, 5,571 encounters, 9,421 claims on an encounter, 108 documents matched.</li>
+<li>The risk bucket chart with the four point rules in an expander.</li>
+</ul></div>
+<div class="card"><h3>Below: this member</h3><ul>
+<li>Member selector (defaults to the worked patient), profile and six chart counts.</li>
+<li>A one-line join: patient → encounter → claim → document.</li>
+<li>Prefilled cited answers (medication, allergy, risk) and a refusal (dose).</li>
+<li>Each answer shows citation chips and a "Rows behind this answer" expander.</li>
+<li>Source tables folded away; a free-text question box at the bottom.</li>
+</ul></div>
+</div>
+<div class="plain"><b class="t">Design rule.</b> A judge who never opens an expander still sees the outcome, the evidence chips and a refusal. Raw tables are there to verify, not to read first.</div>
+</section>
+
+<section id="checks">
+<h2>11 · Every check we run</h2>
+<table><thead><tr><th>Check</th><th>Expected</th><th>Result</th></tr></thead><tbody>
+<tr><td>Patients · encounters · claims · claim lines</td><td>108 · 5,571 · 9,421 · 85,047, unique ids</td><td class="win">pass</td></tr>
+<tr><td>Orphan foreign keys</td><td>0</td><td class="win">pass</td></tr>
+<tr><td>Document id = patient id</td><td>108 of 108</td><td class="win">pass</td></tr>
+<tr><td>Narrative cells reconciled</td><td>medications 3,850; conditions 3,517; allergies 105</td><td class="win">pass</td></tr>
+<tr><td>Section counts</td><td>10160-0 → 105 · 47519-4 → 107 · 48765-2 → 21</td><td class="win">pass</td></tr>
+<tr><td>Analyst reads SSN / DRIVERS / PASSPORT</td><td>denied</td><td class="win">pass</td></tr>
+<tr><td>Question 1 tuple</td><td>one medication row + two cells</td><td class="win">pass</td></tr>
+<tr><td>Risk buckets</td><td>19 / 37 / 35 / 6 / 0</td><td class="win">pass</td></tr>
+<tr><td>App queries as analyst role</td><td>18 queries run, correct aliases</td><td class="win">pass</td></tr>
+<tr><td>Python unit tests</td><td>30 app tests + 6 parser tests</td><td class="win">pass</td></tr>
+</tbody></table>
+<p>Live gate summary from <code>tests/expected_checks.sql</code>: <code>FAILED_GATE_COUNT = 0</code>.</p>
+</section>
+
+<section id="coco">
+<h2>12 · CoCo CLI evidence</h2>
+<div class="grid g4">
+<div class="card"><h3>Planning</h3><p>Track decision, the six frozen questions, expected checks, written bans.</p><code>coco/prompts/01-planning.md</code></div>
+<div class="card"><h3>Development</h3><p>RAW/CORE DDL, C-CDA parser, citation contract, semantic view, app source.</p><code>coco/prompts/02-development.md</code></div>
+<div class="card"><h3>Execution</h3><p>Database, warehouse, stage, load, views, roles and Streamlit created via CLI.</p><code>coco/prompts/03-execution.md</code></div>
+<div class="card"><h3>Testing</h3><p>Expected-check worksheet, role denial, answers and refusals.</p><code>coco/prompts/04-testing.md</code></div>
+</div>
+<div class="warn"><b class="t">Bugs CoCo helped us find and fix.</b> <code>START</code>/<code>STOP</code> are reserved words and had to be quoted; 42 semantic-view dimensions were written backwards; the imaging table needed a composite key; seven app queries used wrong column names; the Streamlit container needed a <code>pyproject.toml</code>. Each was caught by a gate, not by a judge.</div>
+</section>
+
+<section id="demo">
+<h2>13 · Six-minute demo script</h2>
+<table><thead><tr><th>Time</th><th>Show</th><th>Say</th></tr></thead><tbody>
+<tr><td>0:00</td><td>Lead line and banner</td><td>Synthea, MITRE, 108 simulated patients, not for care. Every answer cites a row or refuses.</td></tr>
+<tr><td>0:30</td><td>Population metrics and join line</td><td>One key crosses chart, claim and document: 108 of 108, zero orphans.</td></tr>
+<tr><td>1:30</td><td>Medication answer</td><td>Fexofenadine, RxNorm 997501, cell <code>medications-desc-2</code> under LOINC 10160-0, one CSV row.</td></tr>
+<tr><td>3:00</td><td>Allergy answer</td><td>The CSV match is 609328004; the other code in the entry is 419199007; we quote the match.</td></tr>
+<tr><td>4:00</td><td>Risk chart</td><td>97 patients, 14 events. Score 2 sits below score 1. This is a point count, not a model.</td></tr>
+<tr><td>5:15</td><td>Refusals</td><td>Change the dose; quote a 2019 discharge summary. Both refused.</td></tr>
+<tr><td>5:45</td><td>Close</td><td>Why not Problem 3: an AML answer has no source passage to cite. Ours always does.</td></tr>
+</tbody></table>
+</section>
+
+<section id="not">
+<h2>14 · What Patient 360 does NOT do</h2>
+<ul>
+<li>It is not a validated risk model. Fourteen events cannot support one.</li>
+<li>It does not recommend treatment, change doses or write back to the chart.</li>
+<li>It does not invent notes, member ids or openFDA joins.</li>
+<li>It does not train or retune anything on the 97-patient cohort.</li>
+<li>It does not treat the lifetime C-CDA as an independent discharge summary.</li>
+<li>It is not for care. Every record is a simulation.</li>
+</ul>
+</section>
+
+<section id="access">
+<h2>15 · Team access</h2>
+<div class="card">
+<p><b>Sign in at:</b> <a href="https://zwmcsrz-om93164.snowflakecomputing.com">https://zwmcsrz-om93164.snowflakecomputing.com</a> (or app.snowflake.com with account <code>ZWMCSRZ-OM93164</code>).</p>
+<p><b>Username:</b> your email address as shared on the team page. <b>Password:</b> the temporary one Navneet sends you privately. You will be asked to set your own on first sign-in.</p>
+<p><b>Your role:</b> <code>PATIENT_360_ANALYST</code>, warehouse <code>PATIENT_360_WH</code>, namespace <code>PATIENT_360.CORE</code>. You can read every CORE view and open the app; RAW and its personal identifiers are not visible to you, by design.</p>
+<p><b>App:</b> Projects → Streamlit → <a href="https://app.snowflake.com/streamlit/ZWMCSRZ/OM93164/#/apps/elbuuteamrmdc3c27of3">PATIENT_360_APP</a>.</p>
+</div>
+<div class="warn"><b class="t">If sign-in fails.</b> Type the password rather than pasting it from chat (chat apps can change dashes and add spaces). Several failed attempts lock the user for a short time; ask Navneet to reset it.</div>
+</section>
+
+<section id="runbook">
+<h2>16 · Runbook and file map</h2>
+<pre>cd patient-360
+snow sql -c patient360 -f sql/00_setup.sql          # database, warehouse, roles
+snow sql -c patient360 -f sql/10_raw_ddl.sql        # RAW tables
+snow sql -c patient360 -f sql/20_load.sql           # stage + COPY + C-CDA cells
+snow sql -c patient360 -f sql/30_core_views.sql     # CORE views, PII dropped
+snow sql -c patient360 -f sql/40_semantic_view.sql  # SEM_MEMBER
+snow sql -c patient360 -f sql/90_roles_grants.sql   # analyst / loader / admin grants
+snow sql -c patient360 -f tests/expected_checks.sql # FAILED_GATE_COUNT = 0
+snow streamlit deploy --replace -c patient360       # PATIENT_360_APP
+snow sql -c patient360 -f sql/95_app_grants.sql     # app usage for analyst
+python -m pytest app/tests -q                       # 30 tests</pre>
+<table><thead><tr><th>Path</th><th>What it is</th></tr></thead><tbody>
+<tr><td><code>sql/</code></td><td>Setup, RAW DDL, load, CORE views, semantic view, grants</td></tr>
+<tr><td><code>app/queries.py</code></td><td>Read-only, aliased queries and SQL safety checks</td></tr>
+<tr><td><code>app/answers.py</code>, <code>app/guardrails.py</code>, <code>app/citations.py</code></td><td>Citation-or-refuse answer engine, refusals and allergy guard</td></tr>
+<tr><td><code>scripts/parse_ccda.py</code></td><td>C-CDA parser into <code>generated/document_section.csv</code> cells (6 tests)</td></tr>
+<tr><td><code>app/banner.py</code></td><td>Lead line, outcome cards, licences, point rules</td></tr>
+<tr><td><code>streamlit/patient_360.py</code></td><td>The judge-facing Streamlit page</td></tr>
+<tr><td><code>snowflake.yml</code></td><td>Snowflake CLI project definition for the app</td></tr>
+<tr><td><code>tests/expected_checks.sql</code></td><td>Every gate in section 11</td></tr>
+<tr><td><code>coco/</code></td><td>CoCo prompts by phase and the evidence checklist</td></tr>
+<tr><td><code>../TRACK-DECISION.md</code></td><td>Full four-track scoring and the Problem 3 comparison</td></tr>
+</tbody></table>
+</section>
+
+<section id="glossary">
+<h2>17 · Glossary</h2>
+<table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>Synthea</td><td>MITRE's open-source synthetic patient generator</td></tr>
+<tr><td>C-CDA</td><td>Consolidated Clinical Document Architecture: the XML care summary format</td></tr>
+<tr><td>LOINC section</td><td>The code naming a C-CDA section, e.g. <code>10160-0</code> Medications, <code>48765-2</code> Allergies</td></tr>
+<tr><td>RxNorm / SNOMED CT</td><td>Standard codes for medications / clinical concepts</td></tr>
+<tr><td>Citation tuple</td><td>The minimal key that finds the exact row or cell behind an answer</td></tr>
+<tr><td>Point count</td><td>A sum of pre-declared yes/no rules; not a probability or a model</td></tr>
+<tr><td>Index / horizon</td><td>Features before 2023-01-01; outcomes from then to 2024-01-01</td></tr>
+<tr><td>Refusal</td><td>The answer engine's response when no tuple supports the question</td></tr>
+<tr><td>Problem 3</td><td>The risk, fraud and regulatory intelligence track (IBM AML HI-Small)</td></tr>
+</tbody></table>
+<p style="color:var(--muted)">TRidents · Sainath Chakravadhanula, Navneet Kumar, Sidharth Sampathi Rao, Jangam Ashok · Snowflake CoCo CLI Hackathon, GCC edition, October 2026.</p>
+</section>
+</main></div></body></html>

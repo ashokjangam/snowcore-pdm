@@ -1,0 +1,12 @@
+# Copy this profile into the Snowflake CLI config outside the repository.
+# Do not put a password, token, private key, or OAuth secret in this repository.
+# externalbrowser, workload identity, or a key path kept outside the repo are the expected authenticators.
+
+[patient360]
+account = "<account_identifier>"
+user = "<user_name>"
+authenticator = "externalbrowser"
+warehouse = "PATIENT_360_XS"
+database = "PATIENT_360"
+schema = "RAW"
+role = "<role_name>"

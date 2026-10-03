@@ -1,0 +1,14 @@
+# Streamlit in Snowflake container runtime. Preinstalled packages are enough
+# for this app, so this file lists only the runtime default.
+
+[project]
+name = "streamlit-app"
+requires-python = "~=3.11.0"
+version = "0.0.1"
+description = "Patient 360 demo. Synthea simulations, not for care."
+dependencies = [
+    "streamlit[snowflake]"
+]
+
+[tool.uv]
+constraint-dependencies = ["numba>=0.56.0"]
